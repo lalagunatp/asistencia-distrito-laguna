@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Control de Asistencia</title>
+  <style>
+    /* ═══════════════════════════════════════════
+       VARIABLES Y RESET
+       ═══════════════════════════════════════════ */
+    :root {
+      --bg: #f5f6fa;
+      --card: #ffffff;
+      --primary: #0b3d91;
+      --primary-light: #1a5fc9;
+      --accent: #00b894;
+      --accent-dark: #00a381;
+      --danger: #e74c3c;
+      --warning: #f39c12;
+      --text: #2d3436;
+      --text-light: #636e72;
+      --border: #dfe6e9;
+      --shadow: 0 2px 12px rgba(0,0,0,0.08);
+      --radius: 14px;
+      --radius-sm: 8px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ═══════════════════════════════════════════
+       LAYOUT
+       ═══════════════════════════════════════════ */
+    .screen { display: none; padding: 16px; max-width: 480px; margin: 0 auto; }
+    .screen.active { display: block; }
+
+    .header {
+      background: var(--primary);
+      color: #fff;
+      padding: 20px 16px 16px;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.3px; }
+    .header .sub { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+
+    .user-bar {
+      background: var(--primary-light);
+      color: #fff;
+      padding: 10px 16px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+    .user-bar.active { display: flex; }
+    .user-bar .name { font-weight: 600; }
+    .user-bar .logout {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: #fff;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    /* ═══════════════════════════════════════════
+       COMPONENTES
+       ═══════════════════════════════════════════ */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 24px 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+    }
+
+    .card h2 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: var(--primary);
+    }
+
+    .input-group { margin-bottom: 14px; }
+    .input-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-light);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    input[type="date"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 16px;
+      transition: border-color 0.2s;
+      background: #fff;
+      -webkit-appearance: none;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    textarea { resize: vertical; min-height: 80px; }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-light); }
+
+    .btn-accent { background: var(--accent); color: #fff; }
+    .btn-accent:hover { background: var(--accent-dark); }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--primary);
+      border: 2px solid var(--primary);
+    }
+
+    /* ═══════════════════════════════════════════
+       MENÚ PRINCIPAL — botones grandes
+       ═══════════════════════════════════════════ */
+    .menu-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .menu-btn {
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: var(--shadow);
+    }
+    .menu-btn:active { transform: scale(0.96); border-color: var(--primary); }
+
+    .menu-btn .icon { font-size: 32px; margin-bottom: 6px; }
+    .menu-btn .label { font-size: 13px; font-weight: 700; color: var(--text); }
+
+    .menu-btn.entrada { border-bottom: 4px solid var(--accent); }
+    .menu-btn.salida { border-bottom: 4px solid var(--danger); }
+    .menu-btn.comision { border-bottom: 4px solid var(--warning); }
+    .menu-btn.homeoffice { border-bottom: 4px solid #6c5ce7; }
+    .menu-btn.solicitud { border-bottom: 4px solid #0984e3; }
+    .menu-btn.historial { border-bottom: 4px solid #636e72; }
+
+    /* ═══════════════════════════════════════════
+       REGISTRO (GPS + SELFIE)
+       ═══════════════════════════════════════════ */
+    .status-box {
+      padding: 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-box.info { background: #dfe6e9; color: var(--text); }
+    .status-box.success { background: #d4edda; color: #155724; }
+    .status-box.error { background: #f8d7da; color: #721c24; }
+    .status-box.warning { background: #fff3cd; color: #856404; }
+
+    .gps-data {
+      font-size: 12px;
+      color: var(--text-light);
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: var(--radius-sm);
+      margin-bottom: 14px;
+    }
+    .gps-data div { margin-bottom: 3px; }
+
+    .camera-area {
+      width: 100%;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: #000;
+      position: relative;
+      margin-bottom: 14px;
+    }
+
+    .camera-area video {
+      width: 100%;
+      display: block;
+      transform: scaleX(-1);
+    }
+
+    .camera-area canvas { display: none; }
+
+    .selfie-preview {
+      width: 100%;
+      border-radius: var(--radius-sm);
+      display: none;
+      margin-bottom: 14px;
+    }
+
+    .btn-camera {
+      background: var(--primary);
+      color: #fff;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      border: 4px solid #fff;
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: -44px auto 14px;
+      position: relative;
+      z-index: 10;
+      cursor: pointer;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+    }
+
+    /* ═══════════════════════════════════════════
+       RESULTADO
+       ═══════════════════════════════════════════ */
+    .result-card {
+      text-align: center;
+      padding: 30px 20px;
+    }
+    .result-card .check { font-size: 64px; margin-bottom: 10px; }
+    .result-card h2 { color: var(--accent); margin-bottom: 8px; font-size: 20px; }
+    .result-card .detail { color: var(--text-light); font-size: 14px; margin-bottom: 4px; }
+
+    /* ═══════════════════════════════════════════
+       HISTORIAL
+       ═══════════════════════════════════════════ */
+    .record-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .record-item:last-child { border-bottom: none; }
+
+    .record-item .thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: #dfe6e9;
+    }
+
+    .record-item .info { flex: 1; }
+    .record-item .info .top {
+      font-weight: 600;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .record-item .info .bottom {
+      font-size: 12px;
+      color: var(--text-light);
+      margin-top: 2px;
+    }
+
+    .tipo-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .tipo-badge.Entrada { background: #d4edda; color: #155724; }
+    .tipo-badge.Salida { background: #f8d7da; color: #721c24; }
+    .tipo-badge.Comisión { background: #fff3cd; color: #856404; }
+    .tipo-badge[class*="Home"] { background: #e8daef; color: #6c3483; }
+
+    /* ═══════════════════════════════════════════
+       LOADER
+       ═══════════════════════════════════════════ */
+    .loader-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+    .loader-overlay.active { display: flex; }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 5px solid #fff;
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ═══════════════════════════════════════════
+       RELOJ
+       ═══════════════════════════════════════════ */
+    .clock {
+      font-size: 36px;
+      font-weight: 800;
+      text-align: center;
+      color: var(--primary);
+      font-variant-numeric: tabular-nums;
+      margin-bottom: 4px;
+    }
+    .clock-date {
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-light);
+      margin-bottom: 16px;
+    }
+
+    /* ═══════════════════════════════════════════
+       BACK BUTTON
+       ═══════════════════════════════════════════ */
+    .back-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      cursor: pointer;
+      color: var(--primary);
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .back-row:active { opacity: 0.6; }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════
+       HEADER
+       ═══════════════════════════════════════════ -->
+  <div class="header">
+    <h1>Control de Asistencia</h1>
+    <div class="sub">Totalplay · La Laguna</div>
+  </div>
+
+  <div class="user-bar" id="userBar">
+    <span><span class="name" id="userName"></span></span>
+    <button class="logout" onclick="logout()">Cerrar sesión</button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       PANTALLA: LOGIN
+       ═══════════════════════════════════════════ -->
+  <div class="screen active" id="loginScreen">
+    <div class="card" style="margin-top: 30px;">
+      <h2>Identificación</h2>
+      <div class="input-group">
+        <label>Número de empleado</label>
+        <input type="text" id="inputNumero" inputmode="numeric" placeholder="Ej: 45126" autocomplete="off">
+      </div>
+      <div class="input-group">
+        <label>PIN</label>
+        <input type="password" id="inputPin" inputmode="numeric" maxlength="6" placeholder="••••" autocomplete="off">
+      </div>
+      <div id="loginError" class="status-box error" style="display:none;"></div>
+      <button class="btn btn-primary" onclick="doLogin()">Ingresar</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       PANTALLA: MENÚ PRINCIPAL
+       ═══════════════════════════════════════════ -->
+  <div class="screen" id="menuScreen">
+    <div class="clock" id="clock">--:--:--</div>
+    <div class="clock-date" id="clockDate"></div>
+
+    <div class="menu-grid">
+      <div class="menu-btn entrada" onclick="iniciarRegistro('Entrada')">
+        <div class="icon">✅</div>
+        <div class="label">Entrada</div>
+      </div>
+      <div class="menu-btn salida" onclick="iniciarRegistro('Salida')">
+        <div class="icon">🚪</div>
+        <div class="label">Salida</div>
+      </div>
+      <div class="menu-btn comision" onclick="iniciarRegistro('Comisión')">
+        <div class="icon">🚗</div>
+        <div class="label">Comisión</div>
+      </div>
+      <div class="menu-btn homeoffice" onclick="iniciarRegistro('Home Office')">
+        <div class="icon">🏠</div>
+        <div class="label">Home Office</div>
+      </div>
+      <div class="menu-btn solicitud" onclick="irSolicitud()">
+        <div class="icon">📋</div>
+        <div class="label">Solicitudes</div>
+      </div>
+      <div class="menu-btn historial" onclick="irHistorial()">
+        <div class="icon">📊</div>
+        <div class="label">Mi Historial</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       PANTALLA: REGISTRO (GPS + SELFIE)
+       ═══════════════════════════════════════════ -->
+  <div class="screen" id="registroScreen">
+    <div class="back-row" onclick="irMenu()">← Menú</div>
+    <div class="card">
+      <h2 id="registroTitulo">Entrada</h2>
+
+      <!-- Paso 1: GPS -->
+      <div id="pasoGPS">
+        <div id="gpsStatus" class="status-box info">📍 Obteniendo ubicación…</div>
+        <div id="gpsData" class="gps-data" style="display:none;"></div>
+      </div>
+
+      <!-- Paso 2: Selfie -->
+      <div id="pasoSelfie" style="display:none;">
+        <p style="font-size:13px; color:var(--text-light); margin-bottom:10px;">Tómate una selfie para confirmar tu registro.</p>
+        <div class="camera-area" id="cameraArea">
+          <video id="video" autoplay playsinline></video>
+          <canvas id="canvas"></canvas>
+        </div>
+        <button class="btn-camera" id="btnCaptura" onclick="capturarFoto()">📷</button>
+        <img id="selfiePreview" class="selfie-preview">
+        <div id="selfieActions" style="display:none; display:flex; gap:8px;">
+          <button class="btn btn-outline" onclick="repetirFoto()" style="flex:1;">Repetir</button>
+          <button class="btn btn-accent" onclick="confirmarRegistro()" style="flex:1;">Confirmar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       PANTALLA: RESULTADO
+       ═══════════════════════════════════════════ -->
+  <div class="screen" id="resultScreen">
+    <div class="card result-card">
+      <div class="check" id="resultIcon">✅</div>
+      <h2 id="resultTitle">Registrado</h2>
+      <div class="detail" id="resultFecha"></div>
+      <div class="detail" id="resultHora"></div>
+      <div class="detail" id="resultMsg" style="margin-top:8px;"></div>
+      <button class="btn btn-primary" onclick="irMenu()" style="margin-top:20px;">Volver al menú</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       PANTALLA: SOLICITUDES
+       ═══════════════════════════════════════════ -->
+  <div class="screen" id="solicitudScreen">
+    <div class="back-row" onclick="irMenu()">← Menú</div>
+    <div class="card">
+      <h2>Nueva Solicitud</h2>
+      <div class="input-group">
+        <label>Tipo</label>
+        <select id="tipoSolicitud">
+          <option value="Vacaciones">Vacaciones</option>
+          <option value="Permiso">Permiso</option>
+          <option value="Incapacidad">Incapacidad</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>Fecha inicio</label>
+        <input type="date" id="fechaInicio">
+      </div>
+      <div class="input-group">
+        <label>Fecha fin</label>
+        <input type="date" id="fechaFin">
+      </div>
+      <div class="input-group">
+        <label>Comentario (opcional)</label>
+        <textarea id="comentarioSolicitud" placeholder="Motivo o detalle"></textarea>
+      </div>
+      <div class="input-group">
+        <label>Evidencia (PDF, foto, etc.)</label>
+        <input type="file" id="evidenciaFile" accept="image/*,application/pdf" style="font-size:14px;">
+      </div>
+      <div id="solicitudError" class="status-box error" style="display:none;"></div>
+      <button class="btn btn-primary" onclick="enviarSolicitud()">Enviar solicitud</button>
+    </div>
+
+    <div class="card" style="margin-top:8px;">
+      <h2>Mis Solicitudes</h2>
+      <div id="listaSolicitudes" style="font-size:13px; color:var(--text-light);">Cargando…</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       PANTALLA: HISTORIAL
+       ═══════════════════════════════════════════ -->
+  <div class="screen" id="historialScreen">
+    <div class="back-row" onclick="irMenu()">← Menú</div>
+    <div class="card">
+      <h2>Mis Registros — Últimos 7 días</h2>
+      <div id="listaRegistros">Cargando…</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       LOADER
+       ═══════════════════════════════════════════ -->
+  <div class="loader-overlay" id="loader">
+    <div class="spinner"></div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       JAVASCRIPT
+       ═══════════════════════════════════════════════════════ -->
+  <script>
+    // ─── ESTADO GLOBAL ──────────────────────────
+    var empleado = null;          // { numero, nombre, empresa, lider }
+    var tipoRegistro = '';        // Entrada | Salida | …
+    var gpsCoords = null;         // { lat, lng, precision }
+    var fotoBase64 = null;
+    var stream = null;            // MediaStream de la cámara
+
+    // ─── UTILIDADES ─────────────────────────────
+    function show(id) {
+      document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+      document.getElementById(id).classList.add('active');
+    }
+
+    function loader(on) {
+      document.getElementById('loader').classList.toggle('active', on);
+    }
+
+    function getDeviceInfo() {
+      var ua = navigator.userAgent;
+      var mobile = /Mobi|Android|iPhone|iPad/i.test(ua);
+      return {
+        navegador: (function() {
+          if (ua.indexOf('Chrome') > -1 && ua.indexOf('Edg') === -1) return 'Chrome';
+          if (ua.indexOf('Firefox') > -1) return 'Firefox';
+          if (ua.indexOf('Safari') > -1 && ua.indexOf('Chrome') === -1) return 'Safari';
+          if (ua.indexOf('Edg') > -1) return 'Edge';
+          return 'Otro';
+        })(),
+        dispositivo: mobile ? 'Móvil' : 'Escritorio'
+      };
+    }
+
+    // ─── RELOJ ──────────────────────────────────
+    function actualizarReloj() {
+      var now = new Date();
+      var h = String(now.getHours()).padStart(2, '0');
+      var m = String(now.getMinutes()).padStart(2, '0');
+      var s = String(now.getSeconds()).padStart(2, '0');
+      document.getElementById('clock').textContent = h + ':' + m + ':' + s;
+
+      var dias = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+      var meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+      document.getElementById('clockDate').textContent =
+        dias[now.getDay()] + ' ' + now.getDate() + ' de ' + meses[now.getMonth()] + ' ' + now.getFullYear();
+    }
+    setInterval(actualizarReloj, 1000);
+    actualizarReloj();
+
+    // ═══════════════════════════════════════════
+    //  LOGIN
+    // ═══════════════════════════════════════════
+    function doLogin() {
+      var num = document.getElementById('inputNumero').value.trim();
+      var pin = document.getElementById('inputPin').value.trim();
+      if (!num || !pin) {
+        showLoginError('Ingresa tu número de empleado y PIN.');
+        return;
+      }
+      loader(true);
+      google.script.run
+        .withSuccessHandler(function(r) {
+          loader(false);
+          if (r.ok) {
+            empleado = r.empleado;
+            document.getElementById('userName').textContent = empleado.nombre;
+            document.getElementById('userBar').classList.add('active');
+            hideLoginError();
+            show('menuScreen');
+          } else {
+            showLoginError(r.msg);
+          }
+        })
+        .withFailureHandler(function(e) {
+          loader(false);
+          showLoginError('Error de conexión: ' + e.message);
+        })
+        .login(num, pin);
+    }
+
+    function showLoginError(msg) {
+      var el = document.getElementById('loginError');
+      el.textContent = msg;
+      el.style.display = 'flex';
+    }
+    function hideLoginError() {
+      document.getElementById('loginError').style.display = 'none';
+    }
+
+    function logout() {
+      empleado = null;
+      detenerCamara();
+      document.getElementById('userBar').classList.remove('active');
+      document.getElementById('inputNumero').value = '';
+      document.getElementById('inputPin').value = '';
+      show('loginScreen');
+    }
+
+    // ═══════════════════════════════════════════
+    //  NAVEGACIÓN
+    // ═══════════════════════════════════════════
+    function irMenu() {
+      detenerCamara();
+      show('menuScreen');
+    }
+
+    // ═══════════════════════════════════════════
+    //  REGISTRO: ENTRADA / SALIDA / COMISIÓN / HO
+    // ═══════════════════════════════════════════
+    function iniciarRegistro(tipo) {
+      tipoRegistro = tipo;
+      fotoBase64 = null;
+      gpsCoords = null;
+
+      document.getElementById('registroTitulo').textContent = tipo;
+      document.getElementById('gpsStatus').className = 'status-box info';
+      document.getElementById('gpsStatus').textContent = '📍 Obteniendo ubicación…';
+      document.getElementById('gpsData').style.display = 'none';
+      document.getElementById('pasoSelfie').style.display = 'none';
+      document.getElementById('selfiePreview').style.display = 'none';
+      document.getElementById('selfieActions').style.display = 'none';
+      document.getElementById('cameraArea').style.display = 'block';
+      document.getElementById('btnCaptura').style.display = 'flex';
+
+      show('registroScreen');
+      obtenerGPS();
+    }
+
+    // ─── GPS ────────────────────────────────────
+    function obtenerGPS() {
+      if (!navigator.geolocation) {
+        document.getElementById('gpsStatus').className = 'status-box error';
+        document.getElementById('gpsStatus').textContent = '❌ Tu navegador no soporta GPS.';
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        function(pos) {
+          gpsCoords = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            precision: pos.coords.accuracy
+          };
+
+          if (gpsCoords.precision > 50) {
+            document.getElementById('gpsStatus').className = 'status-box warning';
+            document.getElementById('gpsStatus').textContent =
+              '⚠️ Precisión: ' + Math.round(gpsCoords.precision) + ' m (se requiere < 50 m). Sal al exterior.';
+          } else {
+            document.getElementById('gpsStatus').className = 'status-box success';
+            document.getElementById('gpsStatus').textContent = '✅ Ubicación obtenida';
+          }
+
+          document.getElementById('gpsData').innerHTML =
+            '<div><strong>Lat:</strong> ' + gpsCoords.lat.toFixed(6) + '</div>' +
+            '<div><strong>Lng:</strong> ' + gpsCoords.lng.toFixed(6) + '</div>' +
+            '<div><strong>Precisión:</strong> ±' + Math.round(gpsCoords.precision) + ' m</div>';
+          document.getElementById('gpsData').style.display = 'block';
+
+          // Abrir cámara
+          document.getElementById('pasoSelfie').style.display = 'block';
+          iniciarCamara();
+        },
+        function(err) {
+          document.getElementById('gpsStatus').className = 'status-box error';
+          var msgs = {
+            1: '❌ Permiso de ubicación denegado. Actívalo en la configuración de tu navegador.',
+            2: '❌ No se pudo obtener la ubicación. Intenta en otro lugar.',
+            3: '❌ Tiempo agotado. Intenta de nuevo.'
+          };
+          document.getElementById('gpsStatus').textContent = msgs[err.code] || '❌ Error GPS.';
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    }
+
+    // ─── CÁMARA ─────────────────────────────────
+    function iniciarCamara() {
+      var video = document.getElementById('video');
+      var constraints = {
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+      };
+
+      navigator.mediaDevices.getUserMedia(constraints)
+        .then(function(s) {
+          stream = s;
+          video.srcObject = s;
+        })
+        .catch(function(e) {
+          alert('No se pudo acceder a la cámara. Verifica los permisos.');
+        });
+    }
+
+    function detenerCamara() {
+      if (stream) {
+        stream.getTracks().forEach(function(t) { t.stop(); });
+        stream = null;
+      }
+    }
+
+    function capturarFoto() {
+      var video = document.getElementById('video');
+      var canvas = document.getElementById('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      var ctx = canvas.getContext('2d');
+      // Espejo horizontal (para que coincida con lo que ve el usuario)
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0);
+
+      fotoBase64 = canvas.toDataURL('image/jpeg', 0.7);
+
+      // Mostrar preview
+      document.getElementById('selfiePreview').src = fotoBase64;
+      document.getElementById('selfiePreview').style.display = 'block';
+      document.getElementById('cameraArea').style.display = 'none';
+      document.getElementById('btnCaptura').style.display = 'none';
+      document.getElementById('selfieActions').style.display = 'flex';
+
+      detenerCamara();
+    }
+
+    function repetirFoto() {
+      fotoBase64 = null;
+      document.getElementById('selfiePreview').style.display = 'none';
+      document.getElementById('selfieActions').style.display = 'none';
+      document.getElementById('cameraArea').style.display = 'block';
+      document.getElementById('btnCaptura').style.display = 'flex';
+      iniciarCamara();
+    }
+
+    // ─── CONFIRMAR REGISTRO ─────────────────────
+    function confirmarRegistro() {
+      if (!gpsCoords) {
+        alert('Se requiere ubicación GPS.');
+        return;
+      }
+      if (!fotoBase64) {
+        alert('La selfie es obligatoria.');
+        return;
+      }
+
+      var info = getDeviceInfo();
+      var datos = {
+        numero: empleado.numero,
+        nombre: empleado.nombre,
+        tipo: tipoRegistro,
+        lat: gpsCoords.lat,
+        lng: gpsCoords.lng,
+        precision: gpsCoords.precision,
+        direccion: '',
+        dispositivo: info.dispositivo,
+        navegador: info.navegador,
+        fotoBase64: fotoBase64,
+        ip: ''
+      };
+
+      loader(true);
+      google.script.run
+        .withSuccessHandler(function(r) {
+          loader(false);
+          if (r.ok) {
+            document.getElementById('resultIcon').textContent = '✅';
+            document.getElementById('resultTitle').textContent = tipoRegistro + ' registrada';
+            document.getElementById('resultTitle').style.color = 'var(--accent)';
+            document.getElementById('resultFecha').textContent = '📅 ' + r.fecha;
+            document.getElementById('resultHora').textContent = '🕐 ' + r.hora;
+            document.getElementById('resultMsg').textContent = '';
+            show('resultScreen');
+          } else {
+            document.getElementById('resultIcon').textContent = '⚠️';
+            document.getElementById('resultTitle').textContent = 'No registrado';
+            document.getElementById('resultTitle').style.color = 'var(--danger)';
+            document.getElementById('resultFecha').textContent = '';
+            document.getElementById('resultHora').textContent = '';
+            document.getElementById('resultMsg').textContent = r.msg;
+            show('resultScreen');
+          }
+        })
+        .withFailureHandler(function(e) {
+          loader(false);
+          alert('Error de conexión: ' + e.message);
+        })
+        .registrarAsistencia(datos);
+    }
+
+    // ═══════════════════════════════════════════
+    //  SOLICITUDES
+    // ═══════════════════════════════════════════
+    function irSolicitud() {
+      // Poner fecha de hoy como default
+      var hoy = new Date().toISOString().split('T')[0];
+      document.getElementById('fechaInicio').value = hoy;
+      document.getElementById('fechaFin').value = hoy;
+      document.getElementById('comentarioSolicitud').value = '';
+      document.getElementById('evidenciaFile').value = '';
+      document.getElementById('solicitudError').style.display = 'none';
+      show('solicitudScreen');
+      cargarMisSolicitudes();
+    }
+
+    function enviarSolicitud() {
+      var tipo = document.getElementById('tipoSolicitud').value;
+      var fi = document.getElementById('fechaInicio').value;
+      var ff = document.getElementById('fechaFin').value;
+      var comentario = document.getElementById('comentarioSolicitud').value;
+
+      if (!fi || !ff) {
+        document.getElementById('solicitudError').textContent = 'Selecciona las fechas.';
+        document.getElementById('solicitudError').style.display = 'flex';
+        return;
+      }
+
+      var fileInput = document.getElementById('evidenciaFile');
+      var enviar = function(evidenciaBase64, evidenciaNombre) {
+        var datos = {
+          numero: empleado.numero,
+          nombre: empleado.nombre,
+          tipoSolicitud: tipo,
+          fechaInicio: fi,
+          fechaFin: ff,
+          comentario: comentario,
+          evidenciaBase64: evidenciaBase64 || '',
+          evidenciaNombre: evidenciaNombre || ''
+        };
+
+        loader(true);
+        google.script.run
+          .withSuccessHandler(function(r) {
+            loader(false);
+            if (r.ok) {
+              document.getElementById('resultIcon').textContent = '📋';
+              document.getElementById('resultTitle').textContent = 'Solicitud enviada';
+              document.getElementById('resultTitle').style.color = 'var(--primary)';
+              document.getElementById('resultFecha').textContent = tipo + ': ' + fi + ' al ' + ff;
+              document.getElementById('resultHora').textContent = 'Estado: Pendiente';
+              document.getElementById('resultMsg').textContent = '';
+              show('resultScreen');
+            } else {
+              document.getElementById('solicitudError').textContent = r.msg;
+              document.getElementById('solicitudError').style.display = 'flex';
+            }
+          })
+          .withFailureHandler(function(e) {
+            loader(false);
+            alert('Error: ' + e.message);
+          })
+          .registrarSolicitud(datos);
+      };
+
+      if (fileInput.files.length > 0) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          enviar(e.target.result, fileInput.files[0].name);
+        };
+        reader.readAsDataURL(fileInput.files[0]);
+      } else {
+        enviar('', '');
+      }
+    }
+
+    function cargarMisSolicitudes() {
+      google.script.run
+        .withSuccessHandler(function(sol) {
+          var container = document.getElementById('listaSolicitudes');
+          if (!sol || sol.length === 0) {
+            container.textContent = 'Sin solicitudes registradas.';
+            return;
+          }
+          var html = '';
+          sol.forEach(function(s) {
+            var color = s.estado === 'Pendiente' ? 'var(--warning)' :
+                        s.estado === 'Aprobada' ? 'var(--accent)' : 'var(--danger)';
+            html += '<div class="record-item">' +
+              '<div class="info">' +
+                '<div class="top"><span>' + s.tipo + '</span><span style="color:' + color + '; font-size:12px;">' + s.estado + '</span></div>' +
+                '<div class="bottom">' + s.inicio + ' → ' + s.fin + '</div>' +
+              '</div>' +
+            '</div>';
+          });
+          container.innerHTML = html;
+        })
+        .obtenerMisSolicitudes(empleado.numero);
+    }
+
+    // ═══════════════════════════════════════════
+    //  HISTORIAL
+    // ═══════════════════════════════════════════
+    function irHistorial() {
+      show('historialScreen');
+      document.getElementById('listaRegistros').textContent = 'Cargando…';
+
+      google.script.run
+        .withSuccessHandler(function(regs) {
+          var container = document.getElementById('listaRegistros');
+          if (!regs || regs.length === 0) {
+            container.textContent = 'Sin registros en los últimos 7 días.';
+            return;
+          }
+          var html = '';
+          regs.forEach(function(r) {
+            var thumbHtml = r.fotoThumb ?
+              '<img class="thumb" src="' + r.fotoThumb + '" alt="foto">' :
+              '<div class="thumb" style="display:flex;align-items:center;justify-content:center;font-size:18px;">📷</div>';
+
+            html += '<div class="record-item">' +
+              thumbHtml +
+              '<div class="info">' +
+                '<div class="top"><span>' + r.fecha + '</span><span class="tipo-badge ' + r.tipo + '">' + r.tipo + '</span></div>' +
+                '<div class="bottom">' + r.hora + (r.ubicacion ? ' · ' + r.ubicacion : '') + '</div>' +
+              '</div>' +
+            '</div>';
+          });
+          container.innerHTML = html;
+        })
+        .withFailureHandler(function(e) {
+          document.getElementById('listaRegistros').textContent = 'Error al cargar: ' + e.message;
+        })
+        .obtenerMisRegistros(empleado.numero, 7);
+    }
+
+    // ─── Enter key en login ─────────────────────
+    document.getElementById('inputPin').addEventListener('keyup', function(e) {
+      if (e.key === 'Enter') doLogin();
+    });
+  </script>
+
+</body>
+</html>
