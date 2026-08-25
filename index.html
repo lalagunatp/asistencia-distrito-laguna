@@ -284,6 +284,19 @@
       <div class="input-group"><label>Desde</label><input type="date" id="repFi"></div>
       <div class="input-group"><label>Hasta</label><input type="date" id="repFf"></div>
     </div>
+    <div class="input-group">
+      <label>Filtrar por</label>
+      <select id="repFiltroTipo" onchange="toggleRepFiltroValor()">
+        <option value="">Todo mi equipo</option>
+        <option value="area">Área</option>
+        <option value="puesto">Puesto</option>
+        <option value="empleado">Número de empleado</option>
+      </select>
+    </div>
+    <div class="input-group" id="repFiltroValorGroup" style="display:none">
+      <label id="repFiltroValorLabel">Valor</label>
+      <select id="repFiltroValor"></select>
+    </div>
     <div id="repError" class="status-box error" style="display:none"></div>
     <button class="btn btn-primary" onclick="generarReporte()">Generar reporte</button>
   </div>
@@ -732,18 +745,43 @@ function rangoRapido(tipo){
   document.getElementById('repFi').value=fechaLocal_(fi);
   document.getElementById('repFf').value=fechaLocal_(ff);
 }
+var repOpciones={areas:[],puestos:[],empleados:[]};
 function irEquipo(){
   show('equipoScreen');
   rangoRapido('semana');
+  document.getElementById('repFiltroTipo').value='';
+  document.getElementById('repFiltroValorGroup').style.display='none';
   document.getElementById('repError').style.display='none';
   document.getElementById('repResultados').innerHTML='';
+  api({accion:'reporteOpcionesFiltro',numero:empleado.numero,pin:miPin}).then(function(r){
+    if(r.ok)repOpciones={areas:r.areas,puestos:r.puestos,empleados:r.empleados};
+  });
+}
+function toggleRepFiltroValor(){
+  var tipo=document.getElementById('repFiltroTipo').value;
+  var g=document.getElementById('repFiltroValorGroup');
+  var sel=document.getElementById('repFiltroValor');
+  if(!tipo){g.style.display='none';return}
+  g.style.display='block';
+  if(tipo==='area'){
+    document.getElementById('repFiltroValorLabel').textContent='Área';
+    sel.innerHTML=repOpciones.areas.length?repOpciones.areas.map(function(a){return '<option value="'+a+'">'+a+'</option>'}).join(''):'<option value="">(sin áreas registradas)</option>';
+  }else if(tipo==='puesto'){
+    document.getElementById('repFiltroValorLabel').textContent='Puesto';
+    sel.innerHTML=repOpciones.puestos.length?repOpciones.puestos.map(function(p){return '<option value="'+p+'">'+p+'</option>'}).join(''):'<option value="">(sin puestos registrados)</option>';
+  }else{
+    document.getElementById('repFiltroValorLabel').textContent='Empleado';
+    sel.innerHTML=repOpciones.empleados.length?repOpciones.empleados.map(function(e){return '<option value="'+e.numero+'">'+e.nombre+' ('+e.numero+')</option>'}).join(''):'<option value="">(sin empleados)</option>';
+  }
 }
 function generarReporte(){
   var fi=document.getElementById('repFi').value,ff=document.getElementById('repFf').value;
+  var tipo=document.getElementById('repFiltroTipo').value;
+  var valor=tipo?document.getElementById('repFiltroValor').value:'';
   document.getElementById('repError').style.display='none';
   if(!fi||!ff){showErr('repError','Selecciona ambas fechas.');return}
   loader(true);
-  api({accion:'reporteEquipo',numero:empleado.numero,pin:miPin,fi:fi,ff:ff}).then(function(r){
+  api({accion:'reporteEquipo',numero:empleado.numero,pin:miPin,fi:fi,ff:ff,filtro:tipo?{tipo:tipo,valor:valor}:null}).then(function(r){
     loader(false);
     if(!r.ok){showErr('repError',r.msg);document.getElementById('repResultados').innerHTML='';return}
     renderReporte(r.reporte);
