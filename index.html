@@ -252,6 +252,40 @@
     <button class="btn btn-primary" onclick="guardarFestivo()">Agregar día festivo</button>
   </div>
   <div class="card">
+    <h2>Home Office — quién y qué días</h2>
+    <div class="input-group">
+      <label>Nivel</label>
+      <select id="hoNivel" onchange="toggleHoClave()">
+        <option value="General">General (todos)</option>
+        <option value="Puesto">Por puesto</option>
+        <option value="Empleado">Por número de empleado</option>
+      </select>
+    </div>
+    <div class="input-group" id="hoClaveGroup" style="display:none">
+      <label id="hoClaveLabel">Puesto</label>
+      <select id="hoClavePuesto" style="display:none"></select>
+      <input type="text" id="hoClave" placeholder="Número de empleado">
+    </div>
+    <div class="input-group">
+      <label>Días permitidos</label>
+      <div class="ubic-checks" id="hoDias">
+        <label><input type="checkbox" value="L"> Lunes</label>
+        <label><input type="checkbox" value="M"> Martes</label>
+        <label><input type="checkbox" value="X"> Miércoles</label>
+        <label><input type="checkbox" value="J"> Jueves</label>
+        <label><input type="checkbox" value="V"> Viernes</label>
+        <label><input type="checkbox" value="S"> Sábado</label>
+        <label><input type="checkbox" value="D"> Domingo</label>
+      </div>
+    </div>
+    <div id="adminHoError" class="status-box error" style="display:none"></div>
+    <button class="btn btn-primary" onclick="guardarHomeOffice()">Guardar regla</button>
+  </div>
+  <div class="card">
+    <h2>Reglas de Home Office configuradas</h2>
+    <div id="listaHomeOffice">Cargando…</div>
+  </div>
+  <div class="card">
     <h2>Ubicaciones</h2>
     <div id="listaUbicaciones">Cargando…</div>
     <div class="input-group" style="margin-top:14px"><label>Nombre</label><input type="text" id="ubicNombre" placeholder="Ej: Sucursal Norte"></div>
@@ -569,11 +603,15 @@ function irAdmin(){
   document.getElementById('adminUbaError').style.display='none';
   document.getElementById('festFecha').value='';document.getElementById('festDescripcion').value='';
   document.getElementById('adminFestivoError').style.display='none';
+  document.getElementById('hoNivel').value='General';toggleHoClave();
+  document.querySelectorAll('#hoDias input:checked').forEach(function(c){c.checked=false});
+  document.getElementById('adminHoError').style.display='none';
   document.getElementById('buscarEmpleado').value='';
   cargarEmpleadosAdmin().then(function(){
-    toggleHorClave();toggleUbaClave();
+    toggleHorClave();toggleUbaClave();toggleHoClave();
     cargarHorariosAdmin();
     cargarFestivosAdmin();
+    cargarHomeOfficeAdmin();
     cargarUbicacionesAdmin().then(function(){renderUbaChecks();cargarAsignacionesUbicacion()});
   });
 }
@@ -707,6 +745,57 @@ function guardarFestivo(){
 function eliminarFestivo(fila){
   loader(true);
   api({accion:'adminEliminarFestivo',numero:empleado.numero,pin:miPin,fila:fila}).then(function(){loader(false);cargarFestivosAdmin()}).catch(function(){loader(false);alert('Error de conexión.')});
+}
+
+// HOME OFFICE
+function toggleHoClave(){
+  var nivel=document.getElementById('hoNivel').value;
+  var g=document.getElementById('hoClaveGroup');
+  var sel=document.getElementById('hoClavePuesto'),txt=document.getElementById('hoClave');
+  if(nivel==='General'){g.style.display='none';return}
+  g.style.display='block';
+  if(nivel==='Puesto'){
+    document.getElementById('hoClaveLabel').textContent='Puesto';
+    sel.innerHTML=opcionesPuestos_();sel.style.display='block';txt.style.display='none';
+  }else{
+    document.getElementById('hoClaveLabel').textContent='Número de empleado';
+    sel.style.display='none';txt.style.display='block';
+  }
+}
+function guardarHomeOffice(){
+  var nivel=document.getElementById('hoNivel').value;
+  var clave=nivel==='Puesto'?document.getElementById('hoClavePuesto').value:document.getElementById('hoClave').value.trim();
+  var dias=Array.prototype.slice.call(document.querySelectorAll('#hoDias input:checked')).map(function(c){return c.value});
+  document.getElementById('adminHoError').style.display='none';
+  if(nivel!=='General'&&!clave){showErr('adminHoError','Ingresa el puesto o número de empleado.');return}
+  if(!dias.length){showErr('adminHoError','Selecciona al menos un día.');return}
+  loader(true);
+  api({accion:'adminGuardarHomeOffice',numero:empleado.numero,pin:miPin,homeOffice:{nivel:nivel,clave:clave,dias:dias}}).then(function(r){
+    loader(false);
+    if(r.ok){
+      document.getElementById('hoClave').value='';
+      document.querySelectorAll('#hoDias input:checked').forEach(function(c){c.checked=false});
+      cargarHomeOfficeAdmin();
+    }
+    else showErr('adminHoError',r.msg);
+  }).catch(function(){loader(false);showErr('adminHoError','Error de conexión.')});
+}
+function cargarHomeOfficeAdmin(){
+  document.getElementById('listaHomeOffice').textContent='Cargando…';
+  api({accion:'adminListarHomeOffice',numero:empleado.numero,pin:miPin}).then(function(r){
+    var c=document.getElementById('listaHomeOffice');
+    if(!r.ok){c.textContent=r.msg;return}
+    if(!r.reglas.length){c.textContent='Sin reglas — nadie puede hacer Home Office todavía.';return}
+    c.innerHTML=r.reglas.map(function(h){
+      return '<div class="hor-row"><div><div style="font-weight:600;font-size:13px">'+h.nivel+(h.clave?' — '+h.clave:'')+'</div>'
+        +'<div style="font-size:12px;color:var(--text-light)">'+formatearDias_(h.dias)+'</div></div>'
+        +'<button class="del" onclick="eliminarHomeOffice('+h.fila+')">✕</button></div>';
+    }).join('');
+  }).catch(function(){document.getElementById('listaHomeOffice').textContent='Error al cargar.'});
+}
+function eliminarHomeOffice(fila){
+  loader(true);
+  api({accion:'adminEliminarHomeOffice',numero:empleado.numero,pin:miPin,fila:fila}).then(function(){loader(false);cargarHomeOfficeAdmin()}).catch(function(){loader(false);alert('Error de conexión.')});
 }
 
 // UBICACIONES
