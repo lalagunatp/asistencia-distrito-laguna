@@ -192,6 +192,13 @@
     <div class="input-group"><label>Tipo</label>
       <select id="tipoSolicitud" onchange="actualizarFormatoVacaciones()"><option value="Vacaciones">Vacaciones</option><option value="Permiso">Permiso</option><option value="Incapacidad">Incapacidad</option></select>
     </div>
+    <div class="input-group" id="modoVacacionesGroup" style="display:none">
+      <label>¿Qué necesitas hacer?</label>
+      <select id="modoVacaciones" onchange="actualizarFormatoVacaciones()">
+        <option value="formato">Generar formato de vacaciones</option>
+        <option value="enviar">Enviar solicitud</option>
+      </select>
+    </div>
     <div class="input-group"><label>Fecha inicio</label><input type="date" id="fechaInicio" onchange="actualizarFormatoVacaciones()"></div>
     <div class="input-group"><label>Fecha fin</label><input type="date" id="fechaFin" onchange="actualizarFormatoVacaciones()"></div>
     <div class="input-group" id="diasVacacionalesGroup" style="display:none">
@@ -205,10 +212,12 @@
         <button type="button" class="btn btn-outline" style="flex:1;min-width:110px" onclick="enviarWhatsappFormato()">💬 WhatsApp</button>
       </div>
     </div>
-    <div class="input-group"><label>Comentario (opcional)</label><textarea id="comentarioSolicitud" placeholder="Motivo o detalle"></textarea></div>
-    <div class="input-group"><label>Evidencia (PDF, foto)</label><input type="file" id="evidenciaFile" accept="image/*,application/pdf" style="font-size:14px"></div>
+    <div id="comentarioEvidenciaGroup">
+      <div class="input-group"><label>Comentario (opcional)</label><textarea id="comentarioSolicitud" placeholder="Motivo o detalle"></textarea></div>
+      <div class="input-group"><label>Evidencia (PDF, foto)</label><input type="file" id="evidenciaFile" accept="image/*,application/pdf" style="font-size:14px"></div>
+    </div>
     <div id="solicitudError" class="status-box error" style="display:none"></div>
-    <button class="btn btn-primary" onclick="enviarSolicitud()">Enviar solicitud</button>
+    <button class="btn btn-primary" id="btnEnviarSolicitud" onclick="enviarSolicitud()">Enviar solicitud</button>
   </div>
   <div class="card"><h2>Mis Solicitudes</h2><div id="listaSolicitudes" style="font-size:13px;color:var(--text-light)">Cargando…</div></div>
 </div>
@@ -630,8 +639,14 @@ function actualizarFormatoVacaciones(){
   var tipo=document.getElementById('tipoSolicitud').value;
   var fi=document.getElementById('fechaInicio').value,ff=document.getElementById('fechaFin').value;
   var aplica=tipo==='Vacaciones'&&empresaRequiereFormato_();
+  document.getElementById('modoVacacionesGroup').style.display=aplica?'block':'none';
+  var modo=aplica?document.getElementById('modoVacaciones').value:'enviar';
+  var modoFormato=aplica&&modo==='formato';
+
   document.getElementById('diasVacacionalesGroup').style.display=aplica?'block':'none';
-  document.getElementById('accionesFormatoVacaciones').style.display=aplica?'block':'none';
+  document.getElementById('accionesFormatoVacaciones').style.display=modoFormato?'block':'none';
+  document.getElementById('comentarioEvidenciaGroup').style.display=modoFormato?'none':'block';
+  document.getElementById('btnEnviarSolicitud').style.display=modoFormato?'none':'block';
   if(aplica&&fi&&ff){
     var dias=calcularDiasVacacionales_(fi,ff);
     document.getElementById('diasVacacionalesTexto').textContent=dias+(dias===1?' día':' días');
@@ -809,6 +824,7 @@ function irSolicitud(){
   var h=new Date().toISOString().split('T')[0];
   document.getElementById('fechaInicio').value=h;document.getElementById('fechaFin').value=h;
   document.getElementById('comentarioSolicitud').value='';document.getElementById('evidenciaFile').value='';
+  document.getElementById('modoVacaciones').value='formato';
   document.getElementById('solicitudError').style.display='none';
   actualizarFormatoVacaciones();
   show('solicitudScreen');cargarSolicitudes();
