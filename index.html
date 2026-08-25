@@ -122,6 +122,24 @@
   </div>
 </div>
 
+<!-- CAMBIO DE NIP OBLIGATORIO -->
+<div class="screen" id="cambiarPinScreen">
+  <div class="card" style="margin-top:30px">
+    <h2>Actualiza tu NIP</h2>
+    <div class="status-box info">Por seguridad, debes cambiar tu NIP antes de continuar. Elige uno que solo tú conozcas.</div>
+    <div class="input-group"><label>Nuevo NIP (4 dígitos)</label><input type="password" id="inputPinNuevo" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off"></div>
+    <div class="input-group"><label>Confirma tu nuevo NIP</label><input type="password" id="inputPinConfirmar" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off"></div>
+    <ul style="font-size:12px;color:var(--text-light);margin:0 0 14px 18px;padding:0;line-height:1.6">
+      <li>No puede ser 8888</li>
+      <li>No puede ser tu número de empleado</li>
+      <li>No puede ser 4 dígitos iguales (ej. 1111)</li>
+      <li>No puede ser una secuencia (ej. 1234, 4321)</li>
+    </ul>
+    <div id="cambiarPinError" class="status-box error" style="display:none"></div>
+    <button class="btn btn-primary" onclick="guardarNuevoPin()">Guardar NIP</button>
+  </div>
+</div>
+
 <!-- MENÚ -->
 <div class="screen" id="menuScreen">
   <div class="clock" id="clock">--:--:--</div>
@@ -406,10 +424,8 @@
     <details class="collapsible">
       <summary>Alta de empleado</summary>
       <div class="collapsible-body">
-        <div class="row-2">
-          <div class="input-group"><label>Número de empleado</label><input type="text" id="altaNumero" inputmode="numeric"></div>
-          <div class="input-group"><label>PIN</label><input type="text" id="altaPin" inputmode="numeric" maxlength="6"></div>
-        </div>
+        <div class="input-group"><label>Número de empleado</label><input type="text" id="altaNumero" inputmode="numeric"></div>
+        <div class="status-box info" style="font-size:12px">El NIP inicial siempre será 8888; se le pedirá cambiarlo al ingresar por primera vez.</div>
         <div class="input-group"><label>Nombre completo</label><input type="text" id="altaNombre"></div>
         <div class="row-2">
           <div class="input-group"><label>Empresa</label><input type="text" id="altaEmpresa"></div>
@@ -522,15 +538,62 @@ function doLogin(){
     loader(false);
     if(r.ok){
       empleado=r.empleado;miPin=pin;
-      document.getElementById('userName').textContent=empleado.nombre;
-      document.getElementById('userBar').classList.add('active');
-      document.getElementById('btnAdmin').style.display=empleado.rol==='RH'?'':'none';
-      document.getElementById('btnEquipo').style.display=empleado.rol?'':'none';
+      activarSesionUI();
       document.getElementById('loginError').style.display='none';
-      show('menuScreen');
+      if(empleado.requiereCambioPin){
+        document.getElementById('inputPinNuevo').value='';
+        document.getElementById('inputPinConfirmar').value='';
+        document.getElementById('cambiarPinError').style.display='none';
+        show('cambiarPinScreen');
+      } else {
+        show('menuScreen');
+      }
     }
     else showErr('loginError',r.msg);
   }).catch(function(){loader(false);showErr('loginError','Error de conexión.')});
+}
+function activarSesionUI(){
+  document.getElementById('userName').textContent=empleado.nombre;
+  document.getElementById('userBar').classList.add('active');
+  document.getElementById('btnAdmin').style.display=empleado.rol==='RH'?'':'none';
+  document.getElementById('btnEquipo').style.display=empleado.rol?'':'none';
+}
+// Debe reflejar las mismas reglas que valida el backend (validarPinSeguro_ en Code.gs).
+function validarPinClient_(pin,numero){
+  if(!/^\d{4}$/.test(pin))return 'El NIP debe ser de 4 dígitos.';
+  if(pin==='8888')return 'No puedes dejar el NIP en el valor por defecto (8888).';
+  if(/^(\d)\1{3}$/.test(pin))return 'El NIP no puede ser 4 dígitos iguales.';
+  var asc=true,desc=true;
+  for(var i=1;i<pin.length;i++){
+    var p=parseInt(pin[i-1],10),c=parseInt(pin[i],10);
+    if((c-p+10)%10!==1)asc=false;
+    if((p-c+10)%10!==1)desc=false;
+  }
+  if(asc||desc)return 'El NIP no puede ser una secuencia consecutiva (ej. 1234, 4321).';
+  var num=String(numero||'').trim();
+  if(num.length>=4){
+    if(pin===num.slice(-4)||pin===num.slice(0,4))return 'El NIP no puede formar parte de tu número de empleado.';
+  } else if(num&&pin.indexOf(num)>-1){
+    return 'El NIP no puede formar parte de tu número de empleado.';
+  }
+  return '';
+}
+function guardarNuevoPin(){
+  var nuevo=document.getElementById('inputPinNuevo').value.trim();
+  var confirmar=document.getElementById('inputPinConfirmar').value.trim();
+  document.getElementById('cambiarPinError').style.display='none';
+  if(nuevo!==confirmar){showErr('cambiarPinError','Los NIP no coinciden.');return}
+  var err=validarPinClient_(nuevo,empleado.numero);
+  if(err){showErr('cambiarPinError',err);return}
+  loader(true);
+  api({accion:'cambiarPin',numero:empleado.numero,pinActual:miPin,pinNuevo:nuevo}).then(function(r){
+    loader(false);
+    if(r.ok){
+      miPin=nuevo;
+      empleado.requiereCambioPin=false;
+      show('menuScreen');
+    } else showErr('cambiarPinError',r.msg);
+  }).catch(function(){loader(false);showErr('cambiarPinError','Error de conexión.')});
 }
 function logout(){empleado=null;miPin='';detenerCamara();document.getElementById('userBar').classList.remove('active');document.getElementById('btnAdmin').style.display='none';document.getElementById('btnEquipo').style.display='none';document.getElementById('inputNumero').value='';document.getElementById('inputPin').value='';show('loginScreen')}
 function irMenu(){detenerCamara();show('menuScreen')}
@@ -1028,9 +1091,16 @@ function renderEmpleadosAdmin(lista){
       +'<div class="toggles">'
         +'<label><input type="checkbox" '+(e.activo?'checked':'')+' onchange="cambiarEmpleado(\''+e.numero+'\',\'activo\',this.checked)"> Activo</label>'
         +'<label><input type="checkbox" '+(e.requiereUbicacion?'checked':'')+' onchange="cambiarEmpleado(\''+e.numero+'\',\'requiereUbicacion\',this.checked)"> Requiere ubicación</label>'
+        +'<button type="button" class="btn" style="padding:5px 12px;font-size:12px;background:var(--warning);color:#fff;width:auto" onclick="resetearPin(\''+e.numero+'\')">Restablecer NIP a 8888</button>'
       +'</div>'
     +'</div>';
   }).join('');
+}
+function resetearPin(numero){
+  if(!confirm('¿Restablecer el NIP de este empleado a 8888? Se le pedirá cambiarlo en su próximo ingreso.'))return;
+  api({accion:'adminActualizarEmpleado',numero:empleado.numero,pin:miPin,target:numero,cambios:{resetPin:true}}).then(function(r){
+    if(!r.ok)alert(r.msg);else alert('NIP restablecido a 8888.');
+  }).catch(function(){alert('Error de conexión.')});
 }
 function filtrarEmpleados(){
   var q=document.getElementById('buscarEmpleado').value.trim().toLowerCase();
@@ -1047,12 +1117,11 @@ function cambiarEmpleado(numero,campo,valor){
 }
 function crearEmpleado(){
   var numero=document.getElementById('altaNumero').value.trim();
-  var pin=document.getElementById('altaPin').value.trim();
   var nombre=document.getElementById('altaNombre').value.trim();
   document.getElementById('adminAltaError').style.display='none';
-  if(!numero||!pin||!nombre){showErr('adminAltaError','Número, nombre y PIN son obligatorios.');return}
+  if(!numero||!nombre){showErr('adminAltaError','Número y nombre son obligatorios.');return}
   var datos={
-    numero:numero,pin:pin,nombre:nombre,
+    numero:numero,pin:'8888',nombre:nombre,
     empresa:document.getElementById('altaEmpresa').value.trim(),
     puesto:document.getElementById('altaPuesto').value.trim(),
     lider:document.getElementById('altaLider').value.trim(),
@@ -1066,7 +1135,7 @@ function crearEmpleado(){
   api({accion:'adminCrearEmpleado',numero:empleado.numero,pin:miPin,datos:datos}).then(function(r){
     loader(false);
     if(r.ok){
-      ['altaNumero','altaPin','altaNombre','altaEmpresa','altaPuesto','altaLider','altaJefeDirecto','altaArea','altaFechaIngreso'].forEach(function(id){document.getElementById(id).value=''});
+      ['altaNumero','altaNombre','altaEmpresa','altaPuesto','altaLider','altaJefeDirecto','altaArea','altaFechaIngreso'].forEach(function(id){document.getElementById(id).value=''});
       document.getElementById('altaRequiereUbicacion').value='SI';
       document.getElementById('altaRol').value='';
       cargarEmpleadosAdmin();
