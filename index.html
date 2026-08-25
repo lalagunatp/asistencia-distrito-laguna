@@ -33,6 +33,16 @@
     .menu-btn.entrada{border-bottom:4px solid var(--accent)}.menu-btn.salida{border-bottom:4px solid var(--danger)}
     .menu-btn.comision{border-bottom:4px solid var(--warning)}.menu-btn.homeoffice{border-bottom:4px solid #6c5ce7}
     .menu-btn.solicitud{border-bottom:4px solid #0984e3}.menu-btn.historial{border-bottom:4px solid #636e72}
+    .menu-btn.admin{border-bottom:4px solid #2d3436}
+    .emp-row{padding:12px 0;border-bottom:1px solid var(--border)}.emp-row:last-child{border-bottom:none}
+    .emp-row .top{font-weight:600;font-size:14px;display:flex;justify-content:space-between}
+    .emp-row .puesto{font-size:12px;color:var(--text-light);margin-top:2px}
+    .emp-row .toggles{display:flex;gap:16px;margin-top:8px;font-size:12px}
+    .emp-row label{display:flex;align-items:center;gap:5px;cursor:pointer}
+    .hor-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+    .hor-row:last-child{border-bottom:none}
+    .hor-row .del{background:transparent;border:none;color:var(--danger);font-size:16px;cursor:pointer;padding:4px 8px}
+    .row-2{display:flex;gap:8px}.row-2 .input-group{flex:1}
     .status-box{padding:14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
     .status-box.info{background:#dfe6e9}.status-box.success{background:#d4edda;color:#155724}
     .status-box.error{background:#f8d7da;color:#721c24}.status-box.warning{background:#fff3cd;color:#856404}
@@ -101,6 +111,7 @@
     <div class="menu-btn homeoffice" onclick="iniciarRegistro('Home Office')"><div class="icon">🏠</div><div class="label">Home Office</div></div>
     <div class="menu-btn solicitud" onclick="irSolicitud()"><div class="icon">📋</div><div class="label">Solicitudes</div></div>
     <div class="menu-btn historial" onclick="irHistorial()"><div class="icon">📊</div><div class="label">Mi Historial</div></div>
+    <div class="menu-btn admin" id="btnAdmin" style="display:none" onclick="irAdmin()"><div class="icon">🛠️</div><div class="label">Panel RH</div></div>
   </div>
 </div>
 
@@ -174,6 +185,40 @@
   <div class="card"><h2>Mis Registros — Últimos 7 días</h2><div id="listaRegistros">Cargando…</div></div>
 </div>
 
+<!-- PANEL RH -->
+<div class="screen" id="adminScreen">
+  <div class="back-row" onclick="irMenu()">← Menú</div>
+  <div class="card">
+    <h2>Empleados</h2>
+    <div id="listaEmpleadosAdmin">Cargando…</div>
+  </div>
+  <div class="card">
+    <h2>Configurar horario</h2>
+    <div class="input-group">
+      <label>Nivel</label>
+      <select id="horNivel" onchange="toggleHorClave()">
+        <option value="General">General (todos)</option>
+        <option value="Puesto">Por puesto</option>
+        <option value="Empleado">Por número de empleado</option>
+      </select>
+    </div>
+    <div class="input-group" id="horClaveGroup" style="display:none">
+      <label id="horClaveLabel">Puesto</label>
+      <input type="text" id="horClave">
+    </div>
+    <div class="row-2">
+      <div class="input-group"><label>Hora entrada</label><input type="time" id="horEntrada"></div>
+      <div class="input-group"><label>Hora salida</label><input type="time" id="horSalida"></div>
+    </div>
+    <div id="adminHorarioError" class="status-box error" style="display:none"></div>
+    <button class="btn btn-primary" onclick="guardarHorario()">Guardar horario</button>
+  </div>
+  <div class="card">
+    <h2>Horarios configurados</h2>
+    <div id="listaHorarios">Cargando…</div>
+  </div>
+</div>
+
 <div class="loader-overlay" id="loader"><div class="spinner"></div></div>
 
 <script>
@@ -183,7 +228,7 @@
 var API_URL = 'https://script.google.com/macros/s/AKfycbwYhFGmH06uwOOCVqo_lzU4LCqAA9cFDg6I82loQsGyajDBRGeoHAnXBLgNVy0XcPRW/exec';
 // ════════════════════════════════════════════════════
 
-var empleado=null, tipoRegistro='', gpsCoords=null, fotoBase64=null, stream=null;
+var empleado=null, miPin='', tipoRegistro='', gpsCoords=null, fotoBase64=null, stream=null;
 var esMovil = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
 function api(body){
@@ -209,11 +254,18 @@ function doLogin(){
   loader(true);
   api({accion:'login',numero:num,pin:pin}).then(function(r){
     loader(false);
-    if(r.ok){empleado=r.empleado;document.getElementById('userName').textContent=empleado.nombre;document.getElementById('userBar').classList.add('active');document.getElementById('loginError').style.display='none';show('menuScreen')}
+    if(r.ok){
+      empleado=r.empleado;miPin=pin;
+      document.getElementById('userName').textContent=empleado.nombre;
+      document.getElementById('userBar').classList.add('active');
+      document.getElementById('btnAdmin').style.display=empleado.rol==='RH'?'':'none';
+      document.getElementById('loginError').style.display='none';
+      show('menuScreen');
+    }
     else showErr('loginError',r.msg);
   }).catch(function(){loader(false);showErr('loginError','Error de conexión.')});
 }
-function logout(){empleado=null;detenerCamara();document.getElementById('userBar').classList.remove('active');document.getElementById('inputNumero').value='';document.getElementById('inputPin').value='';show('loginScreen')}
+function logout(){empleado=null;miPin='';detenerCamara();document.getElementById('userBar').classList.remove('active');document.getElementById('btnAdmin').style.display='none';document.getElementById('inputNumero').value='';document.getElementById('inputPin').value='';show('loginScreen')}
 function irMenu(){detenerCamara();show('menuScreen')}
 
 // REGISTRO
@@ -342,7 +394,7 @@ function confirmarRegistro(){
       document.getElementById('resultFecha').textContent='📅 '+r.fecha;
       document.getElementById('resultHora').textContent='🕐 '+r.hora;
       document.getElementById('resultDireccion').textContent=r.direccion?'📍 '+r.direccion:'';
-      document.getElementById('resultMsg').textContent='';
+      document.getElementById('resultMsg').textContent=(r.puntualidad&&r.puntualidad!=='A tiempo')?'⏱ '+r.puntualidad:'';
     }else{
       document.getElementById('resultIcon').textContent='⚠️';
       document.getElementById('resultTitle').textContent='No registrado';
@@ -394,6 +446,77 @@ function irHistorial(){
     if(!r.ok||!r.registros||!r.registros.length){c.textContent='Sin registros en los últimos 7 días.';return}
     c.innerHTML=r.registros.map(function(reg){var th=reg.fotoThumb?'<img class="thumb" src="'+reg.fotoThumb+'" alt="">':'<div class="thumb" style="display:flex;align-items:center;justify-content:center;font-size:18px">📷</div>';return'<div class="record-item">'+th+'<div class="info"><div class="top"><span>'+reg.fecha+'</span><span class="tipo-badge '+reg.tipo.replace(/\s/g,'')+'">'+reg.tipo+'</span></div><div class="bottom">'+reg.hora+(reg.ubicacion?' · '+reg.ubicacion:'')+'</div></div></div>'}).join('');
   }).catch(function(){document.getElementById('listaRegistros').textContent='Error al cargar.'});
+}
+
+// PANEL RH
+function irAdmin(){
+  show('adminScreen');
+  document.getElementById('horNivel').value='General';toggleHorClave();
+  document.getElementById('horClave').value='';document.getElementById('horEntrada').value='';document.getElementById('horSalida').value='';
+  document.getElementById('adminHorarioError').style.display='none';
+  cargarEmpleadosAdmin();cargarHorariosAdmin();
+}
+function cargarEmpleadosAdmin(){
+  document.getElementById('listaEmpleadosAdmin').textContent='Cargando…';
+  api({accion:'adminListarEmpleados',numero:empleado.numero,pin:miPin}).then(function(r){
+    var c=document.getElementById('listaEmpleadosAdmin');
+    if(!r.ok){c.textContent=r.msg;return}
+    if(!r.empleados.length){c.textContent='Sin empleados.';return}
+    c.innerHTML=r.empleados.map(function(e){
+      return '<div class="emp-row">'
+        +'<div class="top"><span>'+e.nombre+'</span><span style="color:var(--text-light);font-weight:400">'+e.numero+'</span></div>'
+        +'<div class="puesto">'+(e.puesto||'Sin puesto asignado')+'</div>'
+        +'<div class="toggles">'
+          +'<label><input type="checkbox" '+(e.activo?'checked':'')+' onchange="cambiarEmpleado(\''+e.numero+'\',\'activo\',this.checked)"> Activo</label>'
+          +'<label><input type="checkbox" '+(e.requiereUbicacion?'checked':'')+' onchange="cambiarEmpleado(\''+e.numero+'\',\'requiereUbicacion\',this.checked)"> Requiere ubicación</label>'
+        +'</div>'
+      +'</div>';
+    }).join('');
+  }).catch(function(){document.getElementById('listaEmpleadosAdmin').textContent='Error al cargar.'});
+}
+function cambiarEmpleado(numero,campo,valor){
+  var cambios={};cambios[campo]=valor;
+  api({accion:'adminActualizarEmpleado',numero:empleado.numero,pin:miPin,target:numero,cambios:cambios}).then(function(r){
+    if(!r.ok)alert(r.msg);
+  }).catch(function(){alert('Error de conexión.')});
+}
+function toggleHorClave(){
+  var nivel=document.getElementById('horNivel').value;
+  var g=document.getElementById('horClaveGroup');
+  if(nivel==='General'){g.style.display='none'}
+  else{g.style.display='block';document.getElementById('horClaveLabel').textContent=nivel==='Puesto'?'Puesto':'Número de empleado'}
+}
+function guardarHorario(){
+  var nivel=document.getElementById('horNivel').value;
+  var clave=document.getElementById('horClave').value.trim();
+  var entrada=document.getElementById('horEntrada').value;
+  var salida=document.getElementById('horSalida').value;
+  document.getElementById('adminHorarioError').style.display='none';
+  if(nivel!=='General'&&!clave){showErr('adminHorarioError','Ingresa el puesto o número de empleado.');return}
+  if(!entrada||!salida){showErr('adminHorarioError','Ingresa ambas horas.');return}
+  loader(true);
+  api({accion:'adminGuardarHorario',numero:empleado.numero,pin:miPin,horario:{nivel:nivel,clave:clave,entrada:entrada,salida:salida}}).then(function(r){
+    loader(false);
+    if(r.ok){document.getElementById('horClave').value='';document.getElementById('horEntrada').value='';document.getElementById('horSalida').value='';cargarHorariosAdmin()}
+    else showErr('adminHorarioError',r.msg);
+  }).catch(function(){loader(false);showErr('adminHorarioError','Error de conexión.')});
+}
+function cargarHorariosAdmin(){
+  document.getElementById('listaHorarios').textContent='Cargando…';
+  api({accion:'adminListarHorarios',numero:empleado.numero,pin:miPin}).then(function(r){
+    var c=document.getElementById('listaHorarios');
+    if(!r.ok){c.textContent=r.msg;return}
+    if(!r.horarios.length){c.textContent='Sin horarios configurados.';return}
+    c.innerHTML=r.horarios.map(function(h){
+      return '<div class="hor-row"><div><div style="font-weight:600;font-size:13px">'+h.nivel+(h.clave?' — '+h.clave:'')+'</div>'
+        +'<div style="font-size:12px;color:var(--text-light)">Entrada '+h.entrada+' · Salida '+h.salida+'</div></div>'
+        +'<button class="del" onclick="eliminarHorario('+h.fila+')">✕</button></div>';
+    }).join('');
+  }).catch(function(){document.getElementById('listaHorarios').textContent='Error al cargar.'});
+}
+function eliminarHorario(fila){
+  loader(true);
+  api({accion:'adminEliminarHorario',numero:empleado.numero,pin:miPin,fila:fila}).then(function(){loader(false);cargarHorariosAdmin()}).catch(function(){loader(false);alert('Error de conexión.')});
 }
 
 document.getElementById('inputPin').addEventListener('keyup',function(e){if(e.key==='Enter')doLogin()});
