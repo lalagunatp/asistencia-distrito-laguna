@@ -57,6 +57,12 @@
     .rep-table{width:100%;border-collapse:collapse;font-size:12px}
     .rep-table th{text-align:left;color:var(--text-light);font-weight:600;padding:4px 6px;border-bottom:1px solid var(--border)}
     .rep-table td{padding:4px 6px;border-bottom:1px solid var(--border)}
+    details.collapsible{margin-top:14px;border-top:1px solid var(--border);padding-top:10px}
+    details.collapsible summary{cursor:pointer;font-weight:700;font-size:14px;color:var(--primary);list-style:none;display:flex;align-items:center;gap:6px}
+    details.collapsible summary::-webkit-details-marker{display:none}
+    details.collapsible summary::before{content:'▸';display:inline-block;font-size:11px}
+    details.collapsible[open] summary::before{content:'▾'}
+    details.collapsible .collapsible-body{margin-top:10px}
     .status-box{padding:14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
     .status-box.info{background:#dfe6e9}.status-box.success{background:#d4edda;color:#155724}
     .status-box.error{background:#f8d7da;color:#721c24}.status-box.warning{background:#fff3cd;color:#856404}
@@ -204,7 +210,7 @@
 <div class="screen" id="adminScreen">
   <div class="back-row" onclick="irMenu()">← Menú</div>
   <div class="card">
-    <h2>Configurar horario</h2>
+    <h2>Horario</h2>
     <div class="input-group">
       <label>Nivel</label>
       <select id="horNivel" onchange="toggleHorClave()">
@@ -236,10 +242,10 @@
     </div>
     <div id="adminHorarioError" class="status-box error" style="display:none"></div>
     <button class="btn btn-primary" onclick="guardarHorario()">Guardar horario</button>
-  </div>
-  <div class="card">
-    <h2>Horarios configurados</h2>
-    <div id="listaHorarios">Cargando…</div>
+    <details class="collapsible">
+      <summary>Horarios configurados</summary>
+      <div id="listaHorarios" class="collapsible-body">Cargando…</div>
+    </details>
   </div>
   <div class="card">
     <h2>Días festivos</h2>
@@ -250,9 +256,8 @@
     </div>
     <div id="adminFestivoError" class="status-box error" style="display:none"></div>
     <button class="btn btn-primary" onclick="guardarFestivo()">Agregar día festivo</button>
-  </div>
-  <div class="card">
-    <h2>Horario en día festivo</h2>
+
+    <h2 style="margin-top:22px">Horario en día festivo</h2>
     <div class="input-group">
       <label>Día festivo</label>
       <select id="hfFecha"></select>
@@ -277,10 +282,10 @@
     </div>
     <div id="adminHfError" class="status-box error" style="display:none"></div>
     <button class="btn btn-primary" onclick="guardarHorarioFestivo()">Guardar horario festivo</button>
-  </div>
-  <div class="card">
-    <h2>Horarios festivos configurados</h2>
-    <div id="listaHorarioFestivo">Cargando…</div>
+    <details class="collapsible">
+      <summary>Horarios festivos configurados</summary>
+      <div id="listaHorarioFestivo" class="collapsible-body">Cargando…</div>
+    </details>
   </div>
   <div class="card">
     <h2>Home Office — quién y qué días</h2>
@@ -318,14 +323,16 @@
   </div>
   <div class="card">
     <h2>Ubicaciones</h2>
-    <div id="listaUbicaciones">Cargando…</div>
+    <details class="collapsible">
+      <summary>Ver ubicaciones registradas</summary>
+      <div id="listaUbicaciones" class="collapsible-body">Cargando…</div>
+    </details>
     <div class="input-group" style="margin-top:14px"><label>Nombre</label><input type="text" id="ubicNombre" placeholder="Ej: Sucursal Norte"></div>
     <div class="input-group"><label>Dirección o coordenadas (lat,lng)</label><input type="text" id="ubicDireccion" placeholder="Calle, colonia, ciudad — o 25.5623994,-103.4317326"></div>
     <div id="adminUbicacionError" class="status-box error" style="display:none"></div>
     <button class="btn btn-primary" onclick="guardarUbicacion()">Agregar ubicación</button>
-  </div>
-  <div class="card">
-    <h2>Asignar ubicaciones</h2>
+
+    <h2 style="margin-top:22px">Asignar ubicaciones</h2>
     <div class="input-group">
       <label>Nivel</label>
       <select id="ubaNivel" onchange="toggleUbaClave()">
@@ -345,10 +352,10 @@
     </div>
     <div id="adminUbaError" class="status-box error" style="display:none"></div>
     <button class="btn btn-primary" onclick="guardarAsignacionUbicacion()">Guardar asignación</button>
-  </div>
-  <div class="card">
-    <h2>Asignaciones configuradas</h2>
-    <div id="listaAsignacionesUbicacion">Cargando…</div>
+    <details class="collapsible">
+      <summary>Asignaciones configuradas</summary>
+      <div id="listaAsignacionesUbicacion" class="collapsible-body">Cargando…</div>
+    </details>
   </div>
   <div class="card">
     <h2>Empleados</h2>
