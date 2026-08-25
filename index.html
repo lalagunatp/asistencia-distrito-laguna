@@ -419,13 +419,14 @@
             <select id="altaRequiereUbicacion"><option value="SI">Sí</option><option value="NO">No</option></select>
           </div>
           <div class="input-group"><label>Rol</label>
-            <select id="altaRol">
-              <option value="">(ninguno)</option>
-              <option value="RH">RH</option>
-              <option value="Director Distrital">Director Distrital</option>
-              <option value="Gerente de Servicio">Gerente de Servicio</option>
-              <option value="Gerente de Operaciones">Gerente de Operaciones</option>
-            </select>
+            <input type="text" id="altaRol" list="altaRolOpciones" placeholder="Vacío = empleado normal">
+            <datalist id="altaRolOpciones">
+              <option value="RH">
+              <option value="Director Distrital">
+              <option value="Gerente de Servicio">
+              <option value="Gerente de Operaciones">
+            </datalist>
+            <div style="font-size:11px;color:var(--text-light);margin-top:4px">Deja vacío si no tiene gente a cargo. "RH" ve a todos; cualquier otro texto (ej. su puesto) le da acceso a "Mi Equipo" con su propia gente.</div>
           </div>
         </div>
         <div id="adminAltaError" class="status-box error" style="display:none"></div>
@@ -485,7 +486,6 @@ var API_URL = 'https://script.google.com/macros/s/AKfycbwYhFGmH06uwOOCVqo_lzU4LC
 // ════════════════════════════════════════════════════
 
 var empleado=null, miPin='', tipoRegistro='', gpsCoords=null, fotoBase64=null, stream=null;
-var ROLES_JEFE=['DIRECTOR DISTRITAL','GERENTE DE SERVICIO','GERENTE DE OPERACIONES'];
 var esMovil = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
 function api(body){
@@ -516,7 +516,7 @@ function doLogin(){
       document.getElementById('userName').textContent=empleado.nombre;
       document.getElementById('userBar').classList.add('active');
       document.getElementById('btnAdmin').style.display=empleado.rol==='RH'?'':'none';
-      document.getElementById('btnEquipo').style.display=(empleado.rol==='RH'||ROLES_JEFE.indexOf(empleado.rol)>-1)?'':'none';
+      document.getElementById('btnEquipo').style.display=empleado.rol?'':'none';
       document.getElementById('loginError').style.display='none';
       show('menuScreen');
     }
