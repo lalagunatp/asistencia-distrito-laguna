@@ -189,10 +189,6 @@
 <div class="screen" id="adminScreen">
   <div class="back-row" onclick="irMenu()">← Menú</div>
   <div class="card">
-    <h2>Empleados</h2>
-    <div id="listaEmpleadosAdmin">Cargando…</div>
-  </div>
-  <div class="card">
     <h2>Configurar horario</h2>
     <div class="input-group">
       <label>Nivel</label>
@@ -216,6 +212,11 @@
   <div class="card">
     <h2>Horarios configurados</h2>
     <div id="listaHorarios">Cargando…</div>
+  </div>
+  <div class="card">
+    <h2>Empleados</h2>
+    <div class="input-group"><input type="text" id="buscarEmpleado" placeholder="Buscar por nombre, número o puesto" oninput="filtrarEmpleados()"></div>
+    <div id="listaEmpleadosAdmin">Cargando…</div>
   </div>
 </div>
 
@@ -449,30 +450,43 @@ function irHistorial(){
 }
 
 // PANEL RH
+var empleadosCache=[];
 function irAdmin(){
   show('adminScreen');
   document.getElementById('horNivel').value='General';toggleHorClave();
   document.getElementById('horClave').value='';document.getElementById('horEntrada').value='';document.getElementById('horSalida').value='';
   document.getElementById('adminHorarioError').style.display='none';
+  document.getElementById('buscarEmpleado').value='';
   cargarEmpleadosAdmin();cargarHorariosAdmin();
 }
 function cargarEmpleadosAdmin(){
   document.getElementById('listaEmpleadosAdmin').textContent='Cargando…';
   api({accion:'adminListarEmpleados',numero:empleado.numero,pin:miPin}).then(function(r){
-    var c=document.getElementById('listaEmpleadosAdmin');
-    if(!r.ok){c.textContent=r.msg;return}
-    if(!r.empleados.length){c.textContent='Sin empleados.';return}
-    c.innerHTML=r.empleados.map(function(e){
-      return '<div class="emp-row">'
-        +'<div class="top"><span>'+e.nombre+'</span><span style="color:var(--text-light);font-weight:400">'+e.numero+'</span></div>'
-        +'<div class="puesto">'+(e.puesto||'Sin puesto asignado')+'</div>'
-        +'<div class="toggles">'
-          +'<label><input type="checkbox" '+(e.activo?'checked':'')+' onchange="cambiarEmpleado(\''+e.numero+'\',\'activo\',this.checked)"> Activo</label>'
-          +'<label><input type="checkbox" '+(e.requiereUbicacion?'checked':'')+' onchange="cambiarEmpleado(\''+e.numero+'\',\'requiereUbicacion\',this.checked)"> Requiere ubicación</label>'
-        +'</div>'
-      +'</div>';
-    }).join('');
+    if(!r.ok){document.getElementById('listaEmpleadosAdmin').textContent=r.msg;return}
+    empleadosCache=r.empleados;
+    renderEmpleadosAdmin(empleadosCache);
   }).catch(function(){document.getElementById('listaEmpleadosAdmin').textContent='Error al cargar.'});
+}
+function renderEmpleadosAdmin(lista){
+  var c=document.getElementById('listaEmpleadosAdmin');
+  if(!lista.length){c.textContent='Sin resultados.';return}
+  c.innerHTML=lista.map(function(e){
+    return '<div class="emp-row">'
+      +'<div class="top"><span>'+e.nombre+'</span><span style="color:var(--text-light);font-weight:400">'+e.numero+'</span></div>'
+      +'<div class="puesto">'+(e.puesto||'Sin puesto asignado')+'</div>'
+      +'<div class="toggles">'
+        +'<label><input type="checkbox" '+(e.activo?'checked':'')+' onchange="cambiarEmpleado(\''+e.numero+'\',\'activo\',this.checked)"> Activo</label>'
+        +'<label><input type="checkbox" '+(e.requiereUbicacion?'checked':'')+' onchange="cambiarEmpleado(\''+e.numero+'\',\'requiereUbicacion\',this.checked)"> Requiere ubicación</label>'
+      +'</div>'
+    +'</div>';
+  }).join('');
+}
+function filtrarEmpleados(){
+  var q=document.getElementById('buscarEmpleado').value.trim().toLowerCase();
+  if(!q){renderEmpleadosAdmin(empleadosCache);return}
+  renderEmpleadosAdmin(empleadosCache.filter(function(e){
+    return (e.nombre||'').toLowerCase().indexOf(q)>-1 || (e.numero||'').toLowerCase().indexOf(q)>-1 || (e.puesto||'').toLowerCase().indexOf(q)>-1;
+  }));
 }
 function cambiarEmpleado(numero,campo,valor){
   var cambios={};cambios[campo]=valor;
