@@ -272,6 +272,15 @@
         <label><input type="checkbox" value="D"> Domingo</label>
       </div>
     </div>
+    <div class="input-group">
+      <label>Semana (para horarios que se turnan cada semana)</label>
+      <select id="horSemana">
+        <option value="">Todas las semanas</option>
+        <option value="A">Solo semana A</option>
+        <option value="B">Solo semana B</option>
+      </select>
+      <div id="horSemanaHoy" style="font-size:11px;color:var(--text-light);margin-top:4px"></div>
+    </div>
     <div class="row-2">
       <div class="input-group"><label>Hora entrada</label><input type="time" id="horEntrada"></div>
       <div class="input-group"><label>Hora salida</label><input type="time" id="horSalida"></div>
@@ -971,6 +980,7 @@ function irAdmin(){
   show('adminScreen');
   document.getElementById('horNivel').value='General';toggleHorClave();
   document.getElementById('horClave').value='';document.getElementById('horEntrada').value='';document.getElementById('horSalida').value='';
+  document.getElementById('horSemana').value='';
   document.getElementById('adminHorarioError').style.display='none';
   document.getElementById('ubicNombre').value='';document.getElementById('ubicDireccion').value='';
   document.getElementById('adminUbicacionError').style.display='none';
@@ -1083,6 +1093,7 @@ function guardarHorario(){
   var nivel=document.getElementById('horNivel').value;
   var clave=nivel==='Puesto'?document.getElementById('horClavePuesto').value:document.getElementById('horClave').value.trim();
   var dias=Array.prototype.slice.call(document.querySelectorAll('#horDias input:checked')).map(function(c){return c.value});
+  var semana=document.getElementById('horSemana').value;
   var entrada=document.getElementById('horEntrada').value;
   var salida=document.getElementById('horSalida').value;
   document.getElementById('adminHorarioError').style.display='none';
@@ -1090,10 +1101,11 @@ function guardarHorario(){
   if(!dias.length){showErr('adminHorarioError','Selecciona al menos un día.');return}
   if(!entrada||!salida){showErr('adminHorarioError','Ingresa ambas horas.');return}
   loader(true);
-  api({accion:'adminGuardarHorario',numero:empleado.numero,pin:miPin,horario:{nivel:nivel,clave:clave,dias:dias,entrada:entrada,salida:salida}}).then(function(r){
+  api({accion:'adminGuardarHorario',numero:empleado.numero,pin:miPin,horario:{nivel:nivel,clave:clave,dias:dias,semana:semana,entrada:entrada,salida:salida}}).then(function(r){
     loader(false);
     if(r.ok){
       document.getElementById('horClave').value='';document.getElementById('horEntrada').value='';document.getElementById('horSalida').value='';
+      document.getElementById('horSemana').value='';
       document.querySelectorAll('#horDias input:checked').forEach(function(c){c.checked=false});
       cargarHorariosAdmin();
     }
@@ -1109,9 +1121,10 @@ function cargarHorariosAdmin(){
   api({accion:'adminListarHorarios',numero:empleado.numero,pin:miPin}).then(function(r){
     var c=document.getElementById('listaHorarios');
     if(!r.ok){c.textContent=r.msg;return}
+    if(r.semanaHoy)document.getElementById('horSemanaHoy').textContent='Hoy es semana '+r.semanaHoy;
     if(!r.horarios.length){c.textContent='Sin horarios configurados.';return}
     c.innerHTML=r.horarios.map(function(h){
-      return '<div class="hor-row"><div><div style="font-weight:600;font-size:13px">'+h.nivel+(h.clave?' — '+h.clave:'')+'</div>'
+      return '<div class="hor-row"><div><div style="font-weight:600;font-size:13px">'+h.nivel+(h.clave?' — '+h.clave:'')+(h.semana?' · Semana '+h.semana:'')+'</div>'
         +'<div style="font-size:12px;color:var(--text-light)">'+formatearDias_(h.dias)+' · Entrada '+h.entrada+' · Salida '+h.salida+'</div></div>'
         +'<button class="del" onclick="eliminarHorario('+h.fila+')">✕</button></div>';
     }).join('');
