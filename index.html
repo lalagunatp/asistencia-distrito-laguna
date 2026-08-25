@@ -57,12 +57,14 @@
     .rep-table{width:100%;border-collapse:collapse;font-size:12px}
     .rep-table th{text-align:left;color:var(--text-light);font-weight:600;padding:4px 6px;border-bottom:1px solid var(--border)}
     .rep-table td{padding:4px 6px;border-bottom:1px solid var(--border)}
-    details.collapsible{margin-top:14px;border-top:1px solid var(--border);padding-top:10px}
-    details.collapsible summary{cursor:pointer;font-weight:700;font-size:14px;color:var(--primary);list-style:none;display:flex;align-items:center;gap:6px}
+    details.collapsible{margin-top:14px}
+    details.collapsible summary{cursor:pointer;font-weight:700;font-size:13px;color:var(--primary);list-style:none;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;background:#eef2fb;border-radius:var(--radius-sm);border:1px solid #dbe4f7}
+    details.collapsible summary:active{transform:scale(.98)}
     details.collapsible summary::-webkit-details-marker{display:none}
-    details.collapsible summary::before{content:'▸';display:inline-block;font-size:11px}
-    details.collapsible[open] summary::before{content:'▾'}
-    details.collapsible .collapsible-body{margin-top:10px}
+    details.collapsible summary::after{content:'▾';font-size:12px;transition:transform .15s}
+    details.collapsible[open]>summary::after{transform:rotate(180deg)}
+    details.collapsible[open]>summary{border-radius:var(--radius-sm) var(--radius-sm) 0 0}
+    details.collapsible .collapsible-body{margin-top:0;padding:12px 14px;background:#f8f9fc;border:1px solid #dbe4f7;border-top:none;border-radius:0 0 var(--radius-sm) var(--radius-sm)}
     .status-box{padding:14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
     .status-box.info{background:#dfe6e9}.status-box.success{background:#d4edda;color:#155724}
     .status-box.error{background:#f8d7da;color:#721c24}.status-box.warning{background:#fff3cd;color:#856404}
@@ -316,10 +318,10 @@
     </div>
     <div id="adminHoError" class="status-box error" style="display:none"></div>
     <button class="btn btn-primary" onclick="guardarHomeOffice()">Guardar regla</button>
-  </div>
-  <div class="card">
-    <h2>Reglas de Home Office configuradas</h2>
-    <div id="listaHomeOffice">Cargando…</div>
+    <details class="collapsible">
+      <summary>Reglas de Home Office configuradas</summary>
+      <div id="listaHomeOffice" class="collapsible-body">Cargando…</div>
+    </details>
   </div>
   <div class="card">
     <h2>Ubicaciones</h2>
