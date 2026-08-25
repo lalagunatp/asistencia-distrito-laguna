@@ -31,7 +31,7 @@
     .menu-btn:active{transform:scale(.96);border-color:var(--primary)}
     .menu-btn .icon{font-size:32px;margin-bottom:6px}.menu-btn .label{font-size:13px;font-weight:700}
     .menu-btn.entrada{border-bottom:4px solid var(--accent)}.menu-btn.salida{border-bottom:4px solid var(--danger)}
-    .menu-btn.comision{border-bottom:4px solid var(--warning)}.menu-btn.homeoffice{border-bottom:4px solid #6c5ce7}
+    .menu-btn.comision{border-bottom:4px solid var(--warning)}
     .menu-btn.solicitud{border-bottom:4px solid #0984e3}.menu-btn.historial{border-bottom:4px solid #636e72}
     .menu-btn.admin{border-bottom:4px solid #2d3436}
     .emp-row{padding:12px 0;border-bottom:1px solid var(--border)}.emp-row:last-child{border-bottom:none}
@@ -130,7 +130,6 @@
     <div class="menu-btn entrada" onclick="iniciarRegistro('Entrada')"><div class="icon">✅</div><div class="label">Entrada</div></div>
     <div class="menu-btn salida" onclick="iniciarRegistro('Salida')"><div class="icon">🚪</div><div class="label">Salida</div></div>
     <div class="menu-btn comision" onclick="iniciarRegistro('Comisión')"><div class="icon">🚗</div><div class="label">Comisión</div></div>
-    <div class="menu-btn homeoffice" onclick="iniciarRegistro('Home Office')"><div class="icon">🏠</div><div class="label">Home Office</div></div>
     <div class="menu-btn solicitud" onclick="irSolicitud()"><div class="icon">📋</div><div class="label">Solicitudes</div></div>
     <div class="menu-btn historial" onclick="irHistorial()"><div class="icon">📊</div><div class="label">Mi Historial</div></div>
     <div class="menu-btn admin" id="btnAdmin" style="display:none" onclick="irAdmin()"><div class="icon">🛠️</div><div class="label">Panel RH</div></div>
@@ -190,7 +189,7 @@
   <div class="card">
     <h2>Nueva Solicitud</h2>
     <div class="input-group"><label>Tipo</label>
-      <select id="tipoSolicitud" onchange="actualizarFormatoVacaciones()"><option value="Vacaciones">Vacaciones</option><option value="Permiso">Permiso</option><option value="Incapacidad">Incapacidad</option></select>
+      <select id="tipoSolicitud" onchange="actualizarFormatoVacaciones()"><option value="Vacaciones">Vacaciones</option><option value="Permiso">Permiso</option><option value="Home Office">Home Office</option><option value="Incapacidad">Incapacidad</option></select>
     </div>
     <div class="input-group" id="modoVacacionesGroup" style="display:none">
       <label>¿Qué necesitas hacer?</label>
@@ -201,6 +200,13 @@
     </div>
     <div class="input-group"><label>Fecha inicio</label><input type="date" id="fechaInicio" onchange="actualizarFormatoVacaciones()"></div>
     <div class="input-group"><label>Fecha fin</label><input type="date" id="fechaFin" onchange="actualizarFormatoVacaciones()"></div>
+    <div class="input-group" id="permisoParcialGroup" style="display:none">
+      <label><input type="checkbox" id="permisoMenosDeUnDia" onchange="actualizarFormatoVacaciones()"> Es un permiso de menos de un día (indicar horario)</label>
+    </div>
+    <div class="row-2" id="permisoHorasGroup" style="display:none">
+      <div class="input-group"><label>Hora de inicio</label><input type="time" id="permisoHoraInicio"></div>
+      <div class="input-group"><label>Hora de término</label><input type="time" id="permisoHoraFin"></div>
+    </div>
     <div class="input-group" id="diasVacacionalesGroup" style="display:none">
       <label>No. de días vacacionales</label>
       <div class="gps-data" id="diasVacacionalesTexto"></div>
@@ -641,7 +647,7 @@ function calcularDiasVacacionales_(fi,ff){
 }
 function actualizarEvidenciaAyuda_(tipo){
   var label=document.getElementById('evidenciaLabel'),ayuda=document.getElementById('evidenciaAyuda');
-  if(tipo==='Permiso'){
+  if(tipo==='Permiso'||tipo==='Home Office'){
     label.textContent='Evidencia (obligatoria)';
     ayuda.textContent='Adjunta una foto o captura de la autorización previa: mensaje de WhatsApp, correo electrónico, o permiso por escrito.';
   }else if(tipo==='Incapacidad'){
@@ -656,6 +662,14 @@ function actualizarFormatoVacaciones(){
   var tipo=document.getElementById('tipoSolicitud').value;
   var fi=document.getElementById('fechaInicio').value,ff=document.getElementById('fechaFin').value;
   actualizarEvidenciaAyuda_(tipo);
+
+  var esPermiso=tipo==='Permiso';
+  document.getElementById('permisoParcialGroup').style.display=esPermiso?'block':'none';
+  var menosDeUnDia=esPermiso&&document.getElementById('permisoMenosDeUnDia').checked;
+  document.getElementById('permisoHorasGroup').style.display=menosDeUnDia?'flex':'none';
+  document.getElementById('fechaFin').disabled=menosDeUnDia;
+  if(menosDeUnDia&&fi){document.getElementById('fechaFin').value=fi;ff=fi}
+
   var aplica=tipo==='Vacaciones'&&empresaRequiereFormato_();
   document.getElementById('modoVacacionesGroup').style.display=aplica?'block':'none';
   var modo=aplica?document.getElementById('modoVacaciones').value:'enviar';
@@ -843,6 +857,8 @@ function irSolicitud(){
   document.getElementById('fechaInicio').value=h;document.getElementById('fechaFin').value=h;
   document.getElementById('comentarioSolicitud').value='';document.getElementById('evidenciaFile').value='';
   document.getElementById('modoVacaciones').value='formato';
+  document.getElementById('permisoMenosDeUnDia').checked=false;
+  document.getElementById('permisoHoraInicio').value='';document.getElementById('permisoHoraFin').value='';
   document.getElementById('solicitudError').style.display='none';
   actualizarFormatoVacaciones();
   show('solicitudScreen');cargarSolicitudes();
@@ -850,8 +866,13 @@ function irSolicitud(){
 function enviarSolicitud(){
   var tipo=document.getElementById('tipoSolicitud').value,fi=document.getElementById('fechaInicio').value,ff=document.getElementById('fechaFin').value,com=document.getElementById('comentarioSolicitud').value;
   if(!fi||!ff){showErr('solicitudError','Selecciona las fechas.');return}
+  if(tipo==='Permiso'&&document.getElementById('permisoMenosDeUnDia').checked){
+    var hi=document.getElementById('permisoHoraInicio').value,hf=document.getElementById('permisoHoraFin').value;
+    if(!hi||!hf){showErr('solicitudError','Indica la hora de inicio y de término del permiso.');return}
+    com='Horario solicitado: '+hi+' a '+hf+(com?'. '+com:'');
+  }
   var fileIn=document.getElementById('evidenciaFile');
-  if(tipo==='Permiso'&&fileIn.files.length===0){showErr('solicitudError','Adjunta evidencia de la autorización previa del permiso.');return}
+  if((tipo==='Permiso'||tipo==='Home Office')&&fileIn.files.length===0){showErr('solicitudError','Adjunta evidencia de la autorización previa.');return}
   if(tipo==='Incapacidad'&&fileIn.files.length===0){showErr('solicitudError','Adjunta tu incapacidad médica.');return}
   var send=function(evB64,evN){
     loader(true);
