@@ -190,10 +190,15 @@
   <div class="card">
     <h2>Nueva Solicitud</h2>
     <div class="input-group"><label>Tipo</label>
-      <select id="tipoSolicitud"><option value="Vacaciones">Vacaciones</option><option value="Permiso">Permiso</option><option value="Incapacidad">Incapacidad</option></select>
+      <select id="tipoSolicitud" onchange="actualizarFormatoVacaciones()"><option value="Vacaciones">Vacaciones</option><option value="Permiso">Permiso</option><option value="Incapacidad">Incapacidad</option></select>
     </div>
-    <div class="input-group"><label>Fecha inicio</label><input type="date" id="fechaInicio"></div>
-    <div class="input-group"><label>Fecha fin</label><input type="date" id="fechaFin"></div>
+    <div class="input-group"><label>Fecha inicio</label><input type="date" id="fechaInicio" onchange="actualizarFormatoVacaciones()"></div>
+    <div class="input-group"><label>Fecha fin</label><input type="date" id="fechaFin" onchange="actualizarFormatoVacaciones()"></div>
+    <div class="input-group" id="diasVacacionalesGroup" style="display:none">
+      <label>No. de días vacacionales</label>
+      <div class="gps-data" id="diasVacacionalesTexto"></div>
+    </div>
+    <button type="button" class="btn btn-outline" id="btnImprimirFormato" style="display:none;margin-bottom:14px" onclick="imprimirFormatoVacaciones()">🖨️ Imprimir formato de vacaciones</button>
     <div class="input-group"><label>Comentario (opcional)</label><textarea id="comentarioSolicitud" placeholder="Motivo o detalle"></textarea></div>
     <div class="input-group"><label>Evidencia (PDF, foto)</label><input type="file" id="evidenciaFile" accept="image/*,application/pdf" style="font-size:14px"></div>
     <div id="solicitudError" class="status-box error" style="display:none"></div>
@@ -591,11 +596,108 @@ function confirmarRegistro(){
 }
 
 // SOLICITUDES
+var EMPRESAS_FORMATO_VACACIONES=['NYX ADMINISTRACION S.A. DE C.V','GRUPO GABSSA SA DE CV'];
+function normalizarTexto_(s){
+  return String(s||'').trim().toUpperCase().normalize('NFD').replace(new RegExp('[̀-ͯ]','g'),'');
+}
+function empresaRequiereFormato_(){
+  var e=normalizarTexto_(empleado&&empleado.empresa);
+  return EMPRESAS_FORMATO_VACACIONES.some(function(x){return e.indexOf(normalizarTexto_(x))>-1});
+}
+function calcularDiasVacacionales_(fi,ff){
+  var d1=new Date(fi+'T00:00:00'), d2=new Date(ff+'T00:00:00');
+  if(isNaN(d1)||isNaN(d2)||d2<d1)return 0;
+  var total=Math.round((d2-d1)/86400000)+1;
+  var finesCompletos=0;
+  var d=new Date(d1);
+  while(d<=d2){
+    if(d.getDay()===6){
+      var dom=new Date(d);dom.setDate(d.getDate()+1);
+      if(dom<=d2)finesCompletos++;
+    }
+    d.setDate(d.getDate()+1);
+  }
+  return total-finesCompletos;
+}
+function actualizarFormatoVacaciones(){
+  var tipo=document.getElementById('tipoSolicitud').value;
+  var fi=document.getElementById('fechaInicio').value,ff=document.getElementById('fechaFin').value;
+  var aplica=tipo==='Vacaciones'&&empresaRequiereFormato_();
+  document.getElementById('diasVacacionalesGroup').style.display=aplica?'block':'none';
+  document.getElementById('btnImprimirFormato').style.display=aplica?'block':'none';
+  if(aplica&&fi&&ff){
+    var dias=calcularDiasVacacionales_(fi,ff);
+    document.getElementById('diasVacacionalesTexto').textContent=dias+(dias===1?' día':' días');
+  }
+}
+function fmtFechaCorta_(s){var p=s.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
+function imprimirFormatoVacaciones(){
+  var fi=document.getElementById('fechaInicio').value,ff=document.getElementById('fechaFin').value;
+  if(!fi||!ff){alert('Selecciona fecha de inicio y fin.');return}
+  var dias=calcularDiasVacacionales_(fi,ff);
+  var html='<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Solicitud de Vacaciones</title>'
+    +'<style>'
+    +'body{font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#000;margin:0;padding:24px}'
+    +'.doc{max-width:720px;margin:0 auto;border:2px solid #000;padding:16px}'
+    +'.titulo{background:#4b1f5c;color:#fff;text-align:center;font-weight:bold;padding:8px;margin:-16px -16px 16px;letter-spacing:.5px}'
+    +'.box{border:2px solid #000;padding:12px;margin-bottom:16px}'
+    +'.fila{display:flex;justify-content:space-between;margin-bottom:14px;gap:20px}'
+    +'.campo{flex:1}'
+    +'.campo label{font-size:10px;display:block;font-weight:bold}'
+    +'.campo .valor{border-bottom:1px solid #000;min-height:18px;padding:2px 4px}'
+    +'.seccion{background:#c9b8dc;font-weight:bold;text-align:center;padding:4px;margin:10px -12px;font-size:12px}'
+    +'.legal{font-size:11px;text-align:center;margin:20px 10px;line-height:1.5}'
+    +'.firmas{display:flex;justify-content:space-around;margin-top:60px;text-align:center}'
+    +'.firma{width:42%}'
+    +'.firma .linea{border-top:1px solid #000;padding-top:4px}'
+    +'.firma .nombre{font-size:11px;margin-top:2px}'
+    +'.rh{margin-top:60px}'
+    +'@media print{body{padding:0}}'
+    +'</style></head><body>'
+    +'<div class="doc">'
+      +'<div class="titulo">SOLICITUD DE VACACIONES</div>'
+      +'<div class="box">'
+        +'<div class="fila"><div class="campo"><label>NOMBRE</label><div class="valor">'+(empleado.nombre||'')+'</div></div></div>'
+        +'<div class="fila">'
+          +'<div class="campo"><label>PUESTO</label><div class="valor">'+(empleado.puesto||'')+'</div></div>'
+          +'<div class="campo" style="flex:0 0 160px"><label>No. EMPLEADO</label><div class="valor">'+(empleado.numero||'')+'</div></div>'
+        +'</div>'
+        +'<div class="fila">'
+          +'<div class="campo"><label>FECHA DE INGRESO</label><div class="valor">'+(empleado.fechaIngreso?fmtFechaCorta_(empleado.fechaIngreso):'')+'</div></div>'
+          +'<div class="campo" style="flex:0 0 220px"><label>No. DE DÍAS VACACIONALES</label><div class="valor">'+dias+'</div></div>'
+        +'</div>'
+        +'<div class="seccion">PERIODO VACACIONAL</div>'
+        +'<div class="fila" style="margin-top:12px">'
+          +'<div class="campo"><label>FECHA DE INICIO</label><div class="valor">'+fmtFechaCorta_(fi)+'</div></div>'
+          +'<div class="campo"><label>FECHA DE TÉRMINO</label><div class="valor">'+fmtFechaCorta_(ff)+'</div></div>'
+        +'</div>'
+      +'</div>'
+      +'<div class="legal">HAGO CONSTAR QUE LAS VACACIONES A QUE TENGO DERECHO ME SERÁN OTORGADAS CON APEGO A LOS ARTS. 76, 79, Y 80 DE LA LEY FEDERAL DEL TRABAJO Y QUE CORRESPONDEN AL PERIODO ARRIBA MENCIONADO.</div>'
+      +'<div class="firmas">'
+        +'<div class="firma"><div class="linea">Firma del empleado</div><div class="nombre">'+(empleado.nombre||'')+'</div></div>'
+        +'<div class="firma"><div class="linea">Firma del Jefe Directo</div><div class="nombre">'+(empleado.lider||'')+'</div></div>'
+      +'</div>'
+      +'<div class="firmas rh">'
+        +'<div class="firma" style="width:60%;margin:0 auto"><div class="linea">Firma de Recursos Humanos</div><div class="nombre">'+(empleado.rhNombre||'')+'</div></div>'
+      +'</div>'
+      +'<div class="seccion" style="margin-top:40px">PARA USO EXCLUSIVO DE RECURSOS HUMANOS</div>'
+      +'<div class="fila" style="margin-top:12px">'
+        +'<div class="campo"><label>PERIODO</label><div class="valor">&nbsp;</div></div>'
+        +'<div class="campo"><label>DÍAS PENDIENTES</label><div class="valor">&nbsp;</div></div>'
+      +'</div>'
+    +'</div>'
+    +'<script>window.onload=function(){window.print()}<\/script>'
+    +'</body></html>';
+  var win=window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+}
 function irSolicitud(){
   var h=new Date().toISOString().split('T')[0];
   document.getElementById('fechaInicio').value=h;document.getElementById('fechaFin').value=h;
   document.getElementById('comentarioSolicitud').value='';document.getElementById('evidenciaFile').value='';
   document.getElementById('solicitudError').style.display='none';
+  actualizarFormatoVacaciones();
   show('solicitudScreen');cargarSolicitudes();
 }
 function enviarSolicitud(){
