@@ -218,6 +218,18 @@
       <select id="horClavePuesto" style="display:none"></select>
       <input type="text" id="horClave" placeholder="Número de empleado">
     </div>
+    <div class="input-group">
+      <label>Días</label>
+      <div class="ubic-checks" id="horDias">
+        <label><input type="checkbox" value="L"> Lunes</label>
+        <label><input type="checkbox" value="M"> Martes</label>
+        <label><input type="checkbox" value="X"> Miércoles</label>
+        <label><input type="checkbox" value="J"> Jueves</label>
+        <label><input type="checkbox" value="V"> Viernes</label>
+        <label><input type="checkbox" value="S"> Sábado</label>
+        <label><input type="checkbox" value="D"> Domingo</label>
+      </div>
+    </div>
     <div class="row-2">
       <div class="input-group"><label>Hora entrada</label><input type="time" id="horEntrada"></div>
       <div class="input-group"><label>Hora salida</label><input type="time" id="horSalida"></div>
@@ -228,6 +240,16 @@
   <div class="card">
     <h2>Horarios configurados</h2>
     <div id="listaHorarios">Cargando…</div>
+  </div>
+  <div class="card">
+    <h2>Días festivos</h2>
+    <div id="listaFestivos">Cargando…</div>
+    <div class="row-2" style="margin-top:14px">
+      <div class="input-group"><label>Fecha</label><input type="date" id="festFecha"></div>
+      <div class="input-group"><label>Descripción</label><input type="text" id="festDescripcion" placeholder="Ej: Día de la Constitución"></div>
+    </div>
+    <div id="adminFestivoError" class="status-box error" style="display:none"></div>
+    <button class="btn btn-primary" onclick="guardarFestivo()">Agregar día festivo</button>
   </div>
   <div class="card">
     <h2>Ubicaciones</h2>
@@ -545,10 +567,13 @@ function irAdmin(){
   document.getElementById('adminUbicacionError').style.display='none';
   document.getElementById('ubaNivel').value='General';toggleUbaClave();
   document.getElementById('adminUbaError').style.display='none';
+  document.getElementById('festFecha').value='';document.getElementById('festDescripcion').value='';
+  document.getElementById('adminFestivoError').style.display='none';
   document.getElementById('buscarEmpleado').value='';
   cargarEmpleadosAdmin().then(function(){
     toggleHorClave();toggleUbaClave();
     cargarHorariosAdmin();
+    cargarFestivosAdmin();
     cargarUbicacionesAdmin().then(function(){renderUbaChecks();cargarAsignacionesUbicacion()});
   });
 }
@@ -613,17 +638,27 @@ function toggleHorClave(){
 function guardarHorario(){
   var nivel=document.getElementById('horNivel').value;
   var clave=nivel==='Puesto'?document.getElementById('horClavePuesto').value:document.getElementById('horClave').value.trim();
+  var dias=Array.prototype.slice.call(document.querySelectorAll('#horDias input:checked')).map(function(c){return c.value});
   var entrada=document.getElementById('horEntrada').value;
   var salida=document.getElementById('horSalida').value;
   document.getElementById('adminHorarioError').style.display='none';
   if(nivel!=='General'&&!clave){showErr('adminHorarioError','Ingresa el puesto o número de empleado.');return}
+  if(!dias.length){showErr('adminHorarioError','Selecciona al menos un día.');return}
   if(!entrada||!salida){showErr('adminHorarioError','Ingresa ambas horas.');return}
   loader(true);
-  api({accion:'adminGuardarHorario',numero:empleado.numero,pin:miPin,horario:{nivel:nivel,clave:clave,entrada:entrada,salida:salida}}).then(function(r){
+  api({accion:'adminGuardarHorario',numero:empleado.numero,pin:miPin,horario:{nivel:nivel,clave:clave,dias:dias,entrada:entrada,salida:salida}}).then(function(r){
     loader(false);
-    if(r.ok){document.getElementById('horClave').value='';document.getElementById('horEntrada').value='';document.getElementById('horSalida').value='';cargarHorariosAdmin()}
+    if(r.ok){
+      document.getElementById('horClave').value='';document.getElementById('horEntrada').value='';document.getElementById('horSalida').value='';
+      document.querySelectorAll('#horDias input:checked').forEach(function(c){c.checked=false});
+      cargarHorariosAdmin();
+    }
     else showErr('adminHorarioError',r.msg);
   }).catch(function(){loader(false);showErr('adminHorarioError','Error de conexión.')});
+}
+var NOMBRES_DIAS={L:'Lun',M:'Mar',X:'Mié',J:'Jue',V:'Vie',S:'Sáb',D:'Dom'};
+function formatearDias_(diasStr){
+  return String(diasStr||'').split(',').map(function(c){return NOMBRES_DIAS[c.trim().toUpperCase()]||c}).join(', ');
 }
 function cargarHorariosAdmin(){
   document.getElementById('listaHorarios').textContent='Cargando…';
@@ -633,7 +668,7 @@ function cargarHorariosAdmin(){
     if(!r.horarios.length){c.textContent='Sin horarios configurados.';return}
     c.innerHTML=r.horarios.map(function(h){
       return '<div class="hor-row"><div><div style="font-weight:600;font-size:13px">'+h.nivel+(h.clave?' — '+h.clave:'')+'</div>'
-        +'<div style="font-size:12px;color:var(--text-light)">Entrada '+h.entrada+' · Salida '+h.salida+'</div></div>'
+        +'<div style="font-size:12px;color:var(--text-light)">'+formatearDias_(h.dias)+' · Entrada '+h.entrada+' · Salida '+h.salida+'</div></div>'
         +'<button class="del" onclick="eliminarHorario('+h.fila+')">✕</button></div>';
     }).join('');
   }).catch(function(){document.getElementById('listaHorarios').textContent='Error al cargar.'});
@@ -641,6 +676,37 @@ function cargarHorariosAdmin(){
 function eliminarHorario(fila){
   loader(true);
   api({accion:'adminEliminarHorario',numero:empleado.numero,pin:miPin,fila:fila}).then(function(){loader(false);cargarHorariosAdmin()}).catch(function(){loader(false);alert('Error de conexión.')});
+}
+
+// DÍAS FESTIVOS
+function cargarFestivosAdmin(){
+  document.getElementById('listaFestivos').textContent='Cargando…';
+  api({accion:'adminListarFestivos',numero:empleado.numero,pin:miPin}).then(function(r){
+    var c=document.getElementById('listaFestivos');
+    if(!r.ok){c.textContent=r.msg;return}
+    if(!r.festivos.length){c.textContent='Sin días festivos registrados.';return}
+    c.innerHTML=r.festivos.map(function(f){
+      return '<div class="hor-row"><div><div style="font-weight:600;font-size:13px">'+f.fecha+'</div>'
+        +'<div style="font-size:12px;color:var(--text-light)">'+(f.descripcion||'—')+'</div></div>'
+        +'<button class="del" onclick="eliminarFestivo('+f.fila+')">✕</button></div>';
+    }).join('');
+  }).catch(function(){document.getElementById('listaFestivos').textContent='Error al cargar.'});
+}
+function guardarFestivo(){
+  var fecha=document.getElementById('festFecha').value;
+  var descripcion=document.getElementById('festDescripcion').value.trim();
+  document.getElementById('adminFestivoError').style.display='none';
+  if(!fecha){showErr('adminFestivoError','Selecciona una fecha.');return}
+  loader(true);
+  api({accion:'adminGuardarFestivo',numero:empleado.numero,pin:miPin,festivo:{fecha:fecha,descripcion:descripcion}}).then(function(r){
+    loader(false);
+    if(r.ok){document.getElementById('festFecha').value='';document.getElementById('festDescripcion').value='';cargarFestivosAdmin()}
+    else showErr('adminFestivoError',r.msg);
+  }).catch(function(){loader(false);showErr('adminFestivoError','Error de conexión.')});
+}
+function eliminarFestivo(fila){
+  loader(true);
+  api({accion:'adminEliminarFestivo',numero:empleado.numero,pin:miPin,fila:fila}).then(function(){loader(false);cargarFestivosAdmin()}).catch(function(){loader(false);alert('Error de conexión.')});
 }
 
 // UBICACIONES
