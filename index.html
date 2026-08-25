@@ -189,7 +189,7 @@
   <div class="card">
     <h2>Nueva Solicitud</h2>
     <div class="input-group"><label>Tipo</label>
-      <select id="tipoSolicitud" onchange="actualizarFormatoVacaciones()"><option value="Vacaciones">Vacaciones</option><option value="Permiso">Permiso</option><option value="Home Office">Home Office</option><option value="Incapacidad">Incapacidad</option></select>
+      <select id="tipoSolicitud" onchange="actualizarFormatoVacaciones()"><option value="Vacaciones">Vacaciones</option><option value="Permiso">Permiso</option><option value="Home Office">Home Office</option><option value="Retraso/Salida Anticipada">Retraso entrada / Salida anticipada</option><option value="Incapacidad">Incapacidad</option></select>
     </div>
     <div class="input-group" id="modoVacacionesGroup" style="display:none">
       <label>¿Qué necesitas hacer?</label>
@@ -647,7 +647,7 @@ function calcularDiasVacacionales_(fi,ff){
 }
 function actualizarEvidenciaAyuda_(tipo){
   var label=document.getElementById('evidenciaLabel'),ayuda=document.getElementById('evidenciaAyuda');
-  if(tipo==='Permiso'||tipo==='Home Office'){
+  if(tipo==='Permiso'||tipo==='Home Office'||tipo==='Retraso/Salida Anticipada'){
     label.textContent='Evidencia (obligatoria)';
     ayuda.textContent='Adjunta una foto o captura de la autorización previa: mensaje de WhatsApp, correo electrónico, o permiso por escrito.';
   }else if(tipo==='Incapacidad'){
@@ -872,7 +872,7 @@ function enviarSolicitud(){
     com='Horario solicitado: '+hi+' a '+hf+(com?'. '+com:'');
   }
   var fileIn=document.getElementById('evidenciaFile');
-  if((tipo==='Permiso'||tipo==='Home Office')&&fileIn.files.length===0){showErr('solicitudError','Adjunta evidencia de la autorización previa.');return}
+  if((tipo==='Permiso'||tipo==='Home Office'||tipo==='Retraso/Salida Anticipada')&&fileIn.files.length===0){showErr('solicitudError','Adjunta evidencia de la autorización previa.');return}
   if(tipo==='Incapacidad'&&fileIn.files.length===0){showErr('solicitudError','Adjunta tu incapacidad médica.');return}
   var send=function(evB64,evN){
     loader(true);
