@@ -252,6 +252,37 @@
     <button class="btn btn-primary" onclick="guardarFestivo()">Agregar día festivo</button>
   </div>
   <div class="card">
+    <h2>Horario en día festivo</h2>
+    <div class="input-group">
+      <label>Día festivo</label>
+      <select id="hfFecha"></select>
+    </div>
+    <div class="input-group">
+      <label>Aplica a</label>
+      <select id="hfNivel" onchange="toggleHfClave()">
+        <option value="General">General (todos)</option>
+        <option value="Area">Por área</option>
+        <option value="Puesto">Por puesto</option>
+        <option value="Empleado">Por número de empleado</option>
+      </select>
+    </div>
+    <div class="input-group" id="hfClaveGroup" style="display:none">
+      <label id="hfClaveLabel">Área</label>
+      <select id="hfClaveSelect" style="display:none"></select>
+      <input type="text" id="hfClave" placeholder="Número de empleado" style="display:none">
+    </div>
+    <div class="row-2">
+      <div class="input-group"><label>Hora entrada</label><input type="time" id="hfEntrada"></div>
+      <div class="input-group"><label>Hora salida</label><input type="time" id="hfSalida"></div>
+    </div>
+    <div id="adminHfError" class="status-box error" style="display:none"></div>
+    <button class="btn btn-primary" onclick="guardarHorarioFestivo()">Guardar horario festivo</button>
+  </div>
+  <div class="card">
+    <h2>Horarios festivos configurados</h2>
+    <div id="listaHorarioFestivo">Cargando…</div>
+  </div>
+  <div class="card">
     <h2>Home Office — quién y qué días</h2>
     <div class="input-group">
       <label>Nivel</label>
@@ -603,14 +634,17 @@ function irAdmin(){
   document.getElementById('adminUbaError').style.display='none';
   document.getElementById('festFecha').value='';document.getElementById('festDescripcion').value='';
   document.getElementById('adminFestivoError').style.display='none';
+  document.getElementById('hfNivel').value='General';
+  document.getElementById('hfEntrada').value='';document.getElementById('hfSalida').value='';
+  document.getElementById('adminHfError').style.display='none';
   document.getElementById('hoNivel').value='General';toggleHoClave();
   document.querySelectorAll('#hoDias input:checked').forEach(function(c){c.checked=false});
   document.getElementById('adminHoError').style.display='none';
   document.getElementById('buscarEmpleado').value='';
   cargarEmpleadosAdmin().then(function(){
-    toggleHorClave();toggleUbaClave();toggleHoClave();
+    toggleHorClave();toggleUbaClave();toggleHoClave();toggleHfClave();
     cargarHorariosAdmin();
-    cargarFestivosAdmin();
+    cargarFestivosAdmin().then(cargarHorarioFestivoAdmin);
     cargarHomeOfficeAdmin();
     cargarUbicacionesAdmin().then(function(){renderUbaChecks();cargarAsignacionesUbicacion()});
   });
@@ -717,18 +751,21 @@ function eliminarHorario(fila){
 }
 
 // DÍAS FESTIVOS
+var festivosCache=[];
 function cargarFestivosAdmin(){
   document.getElementById('listaFestivos').textContent='Cargando…';
-  api({accion:'adminListarFestivos',numero:empleado.numero,pin:miPin}).then(function(r){
+  return api({accion:'adminListarFestivos',numero:empleado.numero,pin:miPin}).then(function(r){
     var c=document.getElementById('listaFestivos');
-    if(!r.ok){c.textContent=r.msg;return}
-    if(!r.festivos.length){c.textContent='Sin días festivos registrados.';return}
-    c.innerHTML=r.festivos.map(function(f){
+    if(!r.ok){c.textContent=r.msg;festivosCache=[];renderHfFechaOptions();return}
+    festivosCache=r.festivos;
+    renderHfFechaOptions();
+    if(!festivosCache.length){c.textContent='Sin días festivos registrados.';return}
+    c.innerHTML=festivosCache.map(function(f){
       return '<div class="hor-row"><div><div style="font-weight:600;font-size:13px">'+f.fecha+'</div>'
         +'<div style="font-size:12px;color:var(--text-light)">'+(f.descripcion||'—')+'</div></div>'
         +'<button class="del" onclick="eliminarFestivo('+f.fila+')">✕</button></div>';
     }).join('');
-  }).catch(function(){document.getElementById('listaFestivos').textContent='Error al cargar.'});
+  }).catch(function(){document.getElementById('listaFestivos').textContent='Error al cargar.';festivosCache=[];renderHfFechaOptions()});
 }
 function guardarFestivo(){
   var fecha=document.getElementById('festFecha').value;
@@ -745,6 +782,71 @@ function guardarFestivo(){
 function eliminarFestivo(fila){
   loader(true);
   api({accion:'adminEliminarFestivo',numero:empleado.numero,pin:miPin,fila:fila}).then(function(){loader(false);cargarFestivosAdmin()}).catch(function(){loader(false);alert('Error de conexión.')});
+}
+
+// HORARIO EN DÍA FESTIVO
+function renderHfFechaOptions(){
+  var sel=document.getElementById('hfFecha');
+  if(!festivosCache.length){sel.innerHTML='<option value="">(agrega un día festivo primero)</option>';return}
+  sel.innerHTML=festivosCache.map(function(f){return '<option value="'+f.fecha+'">'+f.fecha+(f.descripcion?' — '+f.descripcion:'')+'</option>'}).join('');
+}
+function opcionesAreas_(){
+  var areas=[];
+  empleadosCache.forEach(function(e){if(e.area&&areas.indexOf(e.area)===-1)areas.push(e.area)});
+  areas.sort();
+  if(!areas.length)return '<option value="">(sin áreas registradas)</option>';
+  return areas.map(function(a){return '<option value="'+a+'">'+a+'</option>'}).join('');
+}
+function toggleHfClave(){
+  var nivel=document.getElementById('hfNivel').value;
+  var g=document.getElementById('hfClaveGroup');
+  var sel=document.getElementById('hfClaveSelect'),txt=document.getElementById('hfClave');
+  if(nivel==='General'){g.style.display='none';return}
+  g.style.display='block';
+  if(nivel==='Area'){
+    document.getElementById('hfClaveLabel').textContent='Área';
+    sel.innerHTML=opcionesAreas_();sel.style.display='block';txt.style.display='none';
+  }else if(nivel==='Puesto'){
+    document.getElementById('hfClaveLabel').textContent='Puesto';
+    sel.innerHTML=opcionesPuestos_();sel.style.display='block';txt.style.display='none';
+  }else{
+    document.getElementById('hfClaveLabel').textContent='Número de empleado';
+    sel.style.display='none';txt.style.display='block';
+  }
+}
+function guardarHorarioFestivo(){
+  var fecha=document.getElementById('hfFecha').value;
+  var nivel=document.getElementById('hfNivel').value;
+  var clave=nivel==='General'?'':(nivel==='Empleado'?document.getElementById('hfClave').value.trim():document.getElementById('hfClaveSelect').value);
+  var entrada=document.getElementById('hfEntrada').value;
+  var salida=document.getElementById('hfSalida').value;
+  document.getElementById('adminHfError').style.display='none';
+  if(!fecha){showErr('adminHfError','Selecciona el día festivo.');return}
+  if(nivel!=='General'&&!clave){showErr('adminHfError','Selecciona el área, puesto o número de empleado.');return}
+  if(!entrada||!salida){showErr('adminHfError','Ingresa ambas horas.');return}
+  loader(true);
+  api({accion:'adminGuardarHorarioFestivo',numero:empleado.numero,pin:miPin,horarioFestivo:{fecha:fecha,nivel:nivel,clave:clave,entrada:entrada,salida:salida}}).then(function(r){
+    loader(false);
+    if(r.ok){document.getElementById('hfEntrada').value='';document.getElementById('hfSalida').value='';cargarHorarioFestivoAdmin()}
+    else showErr('adminHfError',r.msg);
+  }).catch(function(){loader(false);showErr('adminHfError','Error de conexión.')});
+}
+function cargarHorarioFestivoAdmin(){
+  document.getElementById('listaHorarioFestivo').textContent='Cargando…';
+  api({accion:'adminListarHorarioFestivo',numero:empleado.numero,pin:miPin}).then(function(r){
+    var c=document.getElementById('listaHorarioFestivo');
+    if(!r.ok){c.textContent=r.msg;return}
+    if(!r.horarios.length){c.textContent='Sin horarios festivos configurados.';return}
+    c.innerHTML=r.horarios.map(function(h){
+      return '<div class="hor-row"><div><div style="font-weight:600;font-size:13px">'+h.fecha+' · '+h.nivel+(h.clave?' — '+h.clave:'')+'</div>'
+        +'<div style="font-size:12px;color:var(--text-light)">Entrada '+h.entrada+' · Salida '+h.salida+'</div></div>'
+        +'<button class="del" onclick="eliminarHorarioFestivo('+h.fila+')">✕</button></div>';
+    }).join('');
+  }).catch(function(){document.getElementById('listaHorarioFestivo').textContent='Error al cargar.'});
+}
+function eliminarHorarioFestivo(fila){
+  loader(true);
+  api({accion:'adminEliminarHorarioFestivo',numero:empleado.numero,pin:miPin,fila:fila}).then(function(){loader(false);cargarHorarioFestivoAdmin()}).catch(function(){loader(false);alert('Error de conexión.')});
 }
 
 // HOME OFFICE
