@@ -215,7 +215,8 @@
     </div>
     <div class="input-group" id="horClaveGroup" style="display:none">
       <label id="horClaveLabel">Puesto</label>
-      <input type="text" id="horClave">
+      <select id="horClavePuesto" style="display:none"></select>
+      <input type="text" id="horClave" placeholder="Número de empleado">
     </div>
     <div class="row-2">
       <div class="input-group"><label>Hora entrada</label><input type="time" id="horEntrada"></div>
@@ -235,6 +236,32 @@
     <div class="input-group"><label>Dirección o coordenadas (lat,lng)</label><input type="text" id="ubicDireccion" placeholder="Calle, colonia, ciudad — o 25.5623994,-103.4317326"></div>
     <div id="adminUbicacionError" class="status-box error" style="display:none"></div>
     <button class="btn btn-primary" onclick="guardarUbicacion()">Agregar ubicación</button>
+  </div>
+  <div class="card">
+    <h2>Asignar ubicaciones</h2>
+    <div class="input-group">
+      <label>Nivel</label>
+      <select id="ubaNivel" onchange="toggleUbaClave()">
+        <option value="General">General (todos)</option>
+        <option value="Puesto">Por puesto</option>
+        <option value="Empleado">Por número de empleado</option>
+      </select>
+    </div>
+    <div class="input-group" id="ubaClaveGroup" style="display:none">
+      <label id="ubaClaveLabel">Puesto</label>
+      <select id="ubaClavePuesto" style="display:none"></select>
+      <input type="text" id="ubaClave" placeholder="Número de empleado">
+    </div>
+    <div class="input-group">
+      <label>Ubicaciones permitidas</label>
+      <div class="ubic-checks" id="ubaChecks"></div>
+    </div>
+    <div id="adminUbaError" class="status-box error" style="display:none"></div>
+    <button class="btn btn-primary" onclick="guardarAsignacionUbicacion()">Guardar asignación</button>
+  </div>
+  <div class="card">
+    <h2>Asignaciones configuradas</h2>
+    <div id="listaAsignacionesUbicacion">Cargando…</div>
   </div>
   <div class="card">
     <h2>Empleados</h2>
@@ -503,27 +530,34 @@ function irAdmin(){
   document.getElementById('adminHorarioError').style.display='none';
   document.getElementById('ubicNombre').value='';document.getElementById('ubicDireccion').value='';
   document.getElementById('adminUbicacionError').style.display='none';
+  document.getElementById('ubaNivel').value='General';toggleUbaClave();
+  document.getElementById('adminUbaError').style.display='none';
   document.getElementById('buscarEmpleado').value='';
-  cargarHorariosAdmin();
-  cargarUbicacionesAdmin().then(cargarEmpleadosAdmin);
+  cargarEmpleadosAdmin().then(function(){
+    toggleHorClave();toggleUbaClave();
+    cargarHorariosAdmin();
+    cargarUbicacionesAdmin().then(function(){renderUbaChecks();cargarAsignacionesUbicacion()});
+  });
+}
+function opcionesPuestos_(){
+  var puestos=[];
+  empleadosCache.forEach(function(e){if(e.puesto&&puestos.indexOf(e.puesto)===-1)puestos.push(e.puesto)});
+  puestos.sort();
+  if(!puestos.length)return '<option value="">(sin puestos registrados)</option>';
+  return puestos.map(function(p){return '<option value="'+p+'">'+p+'</option>'}).join('');
 }
 function cargarEmpleadosAdmin(){
   document.getElementById('listaEmpleadosAdmin').textContent='Cargando…';
-  api({accion:'adminListarEmpleados',numero:empleado.numero,pin:miPin}).then(function(r){
-    if(!r.ok){document.getElementById('listaEmpleadosAdmin').textContent=r.msg;return}
+  return api({accion:'adminListarEmpleados',numero:empleado.numero,pin:miPin}).then(function(r){
+    if(!r.ok){document.getElementById('listaEmpleadosAdmin').textContent=r.msg;empleadosCache=[];return}
     empleadosCache=r.empleados;
     renderEmpleadosAdmin(empleadosCache);
-  }).catch(function(){document.getElementById('listaEmpleadosAdmin').textContent='Error al cargar.'});
+  }).catch(function(){document.getElementById('listaEmpleadosAdmin').textContent='Error al cargar.';empleadosCache=[]});
 }
 function renderEmpleadosAdmin(lista){
   var c=document.getElementById('listaEmpleadosAdmin');
   if(!lista.length){c.textContent='Sin resultados.';return}
   c.innerHTML=lista.map(function(e){
-    var asignadas=(e.ubicacionesAsignadas||'').split(',').map(function(s){return s.trim().toLowerCase()}).filter(Boolean);
-    var checks=ubicacionesCache.map(function(u){
-      var checked=asignadas.indexOf(u.nombre.toLowerCase())>-1;
-      return '<label><input type="checkbox" '+(checked?'checked':'')+' onchange="toggleUbicacionEmpleado(\''+e.numero+'\',\''+u.nombre.replace(/'/g,"\\'")+'\',this.checked)"> '+u.nombre+'</label>';
-    }).join('');
     return '<div class="emp-row">'
       +'<div class="top"><span>'+e.nombre+'</span><span style="color:var(--text-light);font-weight:400">'+e.numero+'</span></div>'
       +'<div class="puesto">'+(e.puesto||'Sin puesto asignado')+'</div>'
@@ -531,7 +565,6 @@ function renderEmpleadosAdmin(lista){
         +'<label><input type="checkbox" '+(e.activo?'checked':'')+' onchange="cambiarEmpleado(\''+e.numero+'\',\'activo\',this.checked)"> Activo</label>'
         +'<label><input type="checkbox" '+(e.requiereUbicacion?'checked':'')+' onchange="cambiarEmpleado(\''+e.numero+'\',\'requiereUbicacion\',this.checked)"> Requiere ubicación</label>'
       +'</div>'
-      +'<div class="ubic-checks">'+checks+'<div class="hint">Sin selección = aplica a todas las ubicaciones</div></div>'
     +'</div>';
   }).join('');
 }
@@ -542,64 +575,31 @@ function filtrarEmpleados(){
     return (e.nombre||'').toLowerCase().indexOf(q)>-1 || (e.numero||'').toLowerCase().indexOf(q)>-1 || (e.puesto||'').toLowerCase().indexOf(q)>-1;
   }));
 }
-function toggleUbicacionEmpleado(numero,nombreUbic,checked){
-  var emp=empleadosCache.find(function(e){return e.numero===numero});
-  if(!emp)return;
-  var actuales=(emp.ubicacionesAsignadas||'').split(',').map(function(s){return s.trim()}).filter(Boolean);
-  if(checked){if(actuales.indexOf(nombreUbic)===-1)actuales.push(nombreUbic)}
-  else{actuales=actuales.filter(function(n){return n!==nombreUbic})}
-  emp.ubicacionesAsignadas=actuales.join(',');
-  api({accion:'adminActualizarEmpleado',numero:empleado.numero,pin:miPin,target:numero,cambios:{ubicacionesAsignadas:emp.ubicacionesAsignadas}}).then(function(r){
-    if(!r.ok)alert(r.msg);
-  }).catch(function(){alert('Error de conexión.')});
-}
-
-// UBICACIONES
-function cargarUbicacionesAdmin(){
-  document.getElementById('listaUbicaciones').textContent='Cargando…';
-  return api({accion:'adminListarUbicaciones',numero:empleado.numero,pin:miPin}).then(function(r){
-    var c=document.getElementById('listaUbicaciones');
-    if(!r.ok){c.textContent=r.msg;ubicacionesCache=[];return}
-    ubicacionesCache=r.ubicaciones;
-    if(!ubicacionesCache.length){c.textContent='Sin ubicaciones registradas.';return}
-    c.innerHTML=ubicacionesCache.map(function(u){
-      return '<div class="ubic-row"><div><div style="font-weight:600;font-size:13px">'+u.nombre+'</div>'
-        +'<div style="font-size:12px;color:var(--text-light)">'+Number(u.lat).toFixed(6)+', '+Number(u.lng).toFixed(6)+'</div></div>'
-        +'<button class="del" onclick="eliminarUbicacion('+u.fila+')">✕</button></div>';
-    }).join('');
-  }).catch(function(){document.getElementById('listaUbicaciones').textContent='Error al cargar.';ubicacionesCache=[]});
-}
-function guardarUbicacion(){
-  var nombre=document.getElementById('ubicNombre').value.trim();
-  var direccion=document.getElementById('ubicDireccion').value.trim();
-  document.getElementById('adminUbicacionError').style.display='none';
-  if(!nombre||!direccion){showErr('adminUbicacionError','Ingresa nombre y dirección (o lat,lng).');return}
-  loader(true);
-  api({accion:'adminGuardarUbicacion',numero:empleado.numero,pin:miPin,ubicacion:{nombre:nombre,direccion:direccion}}).then(function(r){
-    loader(false);
-    if(r.ok){document.getElementById('ubicNombre').value='';document.getElementById('ubicDireccion').value='';cargarUbicacionesAdmin().then(function(){renderEmpleadosAdmin(empleadosCache)})}
-    else showErr('adminUbicacionError',r.msg);
-  }).catch(function(){loader(false);showErr('adminUbicacionError','Error de conexión.')});
-}
-function eliminarUbicacion(fila){
-  loader(true);
-  api({accion:'adminEliminarUbicacion',numero:empleado.numero,pin:miPin,fila:fila}).then(function(){loader(false);cargarUbicacionesAdmin().then(function(){renderEmpleadosAdmin(empleadosCache)})}).catch(function(){loader(false);alert('Error de conexión.')});
-}
 function cambiarEmpleado(numero,campo,valor){
   var cambios={};cambios[campo]=valor;
   api({accion:'adminActualizarEmpleado',numero:empleado.numero,pin:miPin,target:numero,cambios:cambios}).then(function(r){
     if(!r.ok)alert(r.msg);
   }).catch(function(){alert('Error de conexión.')});
 }
+
+// HORARIOS
 function toggleHorClave(){
   var nivel=document.getElementById('horNivel').value;
   var g=document.getElementById('horClaveGroup');
-  if(nivel==='General'){g.style.display='none'}
-  else{g.style.display='block';document.getElementById('horClaveLabel').textContent=nivel==='Puesto'?'Puesto':'Número de empleado'}
+  var sel=document.getElementById('horClavePuesto'),txt=document.getElementById('horClave');
+  if(nivel==='General'){g.style.display='none';return}
+  g.style.display='block';
+  if(nivel==='Puesto'){
+    document.getElementById('horClaveLabel').textContent='Puesto';
+    sel.innerHTML=opcionesPuestos_();sel.style.display='block';txt.style.display='none';
+  }else{
+    document.getElementById('horClaveLabel').textContent='Número de empleado';
+    sel.style.display='none';txt.style.display='block';
+  }
 }
 function guardarHorario(){
   var nivel=document.getElementById('horNivel').value;
-  var clave=document.getElementById('horClave').value.trim();
+  var clave=nivel==='Puesto'?document.getElementById('horClavePuesto').value:document.getElementById('horClave').value.trim();
   var entrada=document.getElementById('horEntrada').value;
   var salida=document.getElementById('horSalida').value;
   document.getElementById('adminHorarioError').style.display='none';
@@ -628,6 +628,92 @@ function cargarHorariosAdmin(){
 function eliminarHorario(fila){
   loader(true);
   api({accion:'adminEliminarHorario',numero:empleado.numero,pin:miPin,fila:fila}).then(function(){loader(false);cargarHorariosAdmin()}).catch(function(){loader(false);alert('Error de conexión.')});
+}
+
+// UBICACIONES
+function cargarUbicacionesAdmin(){
+  document.getElementById('listaUbicaciones').textContent='Cargando…';
+  return api({accion:'adminListarUbicaciones',numero:empleado.numero,pin:miPin}).then(function(r){
+    var c=document.getElementById('listaUbicaciones');
+    if(!r.ok){c.textContent=r.msg;ubicacionesCache=[];return}
+    ubicacionesCache=r.ubicaciones;
+    if(!ubicacionesCache.length){c.textContent='Sin ubicaciones registradas.';return}
+    c.innerHTML=ubicacionesCache.map(function(u){
+      return '<div class="ubic-row"><div><div style="font-weight:600;font-size:13px">'+u.nombre+'</div>'
+        +'<div style="font-size:12px;color:var(--text-light)">'+Number(u.lat).toFixed(6)+', '+Number(u.lng).toFixed(6)+'</div></div>'
+        +'<button class="del" onclick="eliminarUbicacion('+u.fila+')">✕</button></div>';
+    }).join('');
+  }).catch(function(){document.getElementById('listaUbicaciones').textContent='Error al cargar.';ubicacionesCache=[]});
+}
+function guardarUbicacion(){
+  var nombre=document.getElementById('ubicNombre').value.trim();
+  var direccion=document.getElementById('ubicDireccion').value.trim();
+  document.getElementById('adminUbicacionError').style.display='none';
+  if(!nombre||!direccion){showErr('adminUbicacionError','Ingresa nombre y dirección (o lat,lng).');return}
+  loader(true);
+  api({accion:'adminGuardarUbicacion',numero:empleado.numero,pin:miPin,ubicacion:{nombre:nombre,direccion:direccion}}).then(function(r){
+    loader(false);
+    if(r.ok){document.getElementById('ubicNombre').value='';document.getElementById('ubicDireccion').value='';cargarUbicacionesAdmin().then(renderUbaChecks)}
+    else showErr('adminUbicacionError',r.msg);
+  }).catch(function(){loader(false);showErr('adminUbicacionError','Error de conexión.')});
+}
+function eliminarUbicacion(fila){
+  loader(true);
+  api({accion:'adminEliminarUbicacion',numero:empleado.numero,pin:miPin,fila:fila}).then(function(){loader(false);cargarUbicacionesAdmin().then(renderUbaChecks)}).catch(function(){loader(false);alert('Error de conexión.')});
+}
+
+// ASIGNAR UBICACIONES (por Nivel: General/Puesto/Empleado)
+function toggleUbaClave(){
+  var nivel=document.getElementById('ubaNivel').value;
+  var g=document.getElementById('ubaClaveGroup');
+  var sel=document.getElementById('ubaClavePuesto'),txt=document.getElementById('ubaClave');
+  if(nivel==='General'){g.style.display='none';return}
+  g.style.display='block';
+  if(nivel==='Puesto'){
+    document.getElementById('ubaClaveLabel').textContent='Puesto';
+    sel.innerHTML=opcionesPuestos_();sel.style.display='block';txt.style.display='none';
+  }else{
+    document.getElementById('ubaClaveLabel').textContent='Número de empleado';
+    sel.style.display='none';txt.style.display='block';
+  }
+}
+function renderUbaChecks(){
+  var c=document.getElementById('ubaChecks');
+  if(!ubicacionesCache.length){c.innerHTML='<div class="hint">Agrega ubicaciones arriba primero.</div>';return}
+  c.innerHTML=ubicacionesCache.map(function(u){
+    return '<label><input type="checkbox" value="'+u.nombre.replace(/"/g,'&quot;')+'"> '+u.nombre+'</label>';
+  }).join('');
+}
+function guardarAsignacionUbicacion(){
+  var nivel=document.getElementById('ubaNivel').value;
+  var clave=nivel==='Puesto'?document.getElementById('ubaClavePuesto').value:document.getElementById('ubaClave').value.trim();
+  var checks=Array.prototype.slice.call(document.querySelectorAll('#ubaChecks input:checked')).map(function(c){return c.value});
+  document.getElementById('adminUbaError').style.display='none';
+  if(nivel!=='General'&&!clave){showErr('adminUbaError','Ingresa el puesto o número de empleado.');return}
+  if(!checks.length){showErr('adminUbaError','Selecciona al menos una ubicación.');return}
+  loader(true);
+  api({accion:'adminGuardarAsignacionUbicacion',numero:empleado.numero,pin:miPin,asignacion:{nivel:nivel,clave:clave,ubicaciones:checks}}).then(function(r){
+    loader(false);
+    if(r.ok){document.getElementById('ubaClave').value='';renderUbaChecks();cargarAsignacionesUbicacion()}
+    else showErr('adminUbaError',r.msg);
+  }).catch(function(){loader(false);showErr('adminUbaError','Error de conexión.')});
+}
+function cargarAsignacionesUbicacion(){
+  document.getElementById('listaAsignacionesUbicacion').textContent='Cargando…';
+  api({accion:'adminListarAsignacionesUbicacion',numero:empleado.numero,pin:miPin}).then(function(r){
+    var c=document.getElementById('listaAsignacionesUbicacion');
+    if(!r.ok){c.textContent=r.msg;return}
+    if(!r.asignaciones.length){c.textContent='Sin asignaciones — todas las ubicaciones aplican a todos.';return}
+    c.innerHTML=r.asignaciones.map(function(a){
+      return '<div class="hor-row"><div><div style="font-weight:600;font-size:13px">'+a.nivel+(a.clave?' — '+a.clave:'')+'</div>'
+        +'<div style="font-size:12px;color:var(--text-light)">'+(a.ubicaciones||'—')+'</div></div>'
+        +'<button class="del" onclick="eliminarAsignacionUbicacion('+a.fila+')">✕</button></div>';
+    }).join('');
+  }).catch(function(){document.getElementById('listaAsignacionesUbicacion').textContent='Error al cargar.'});
+}
+function eliminarAsignacionUbicacion(fila){
+  loader(true);
+  api({accion:'adminEliminarAsignacionUbicacion',numero:empleado.numero,pin:miPin,fila:fila}).then(function(){loader(false);cargarAsignacionesUbicacion()}).catch(function(){loader(false);alert('Error de conexión.')});
 }
 
 // MI EQUIPO
