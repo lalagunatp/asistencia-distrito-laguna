@@ -198,7 +198,13 @@
       <label>No. de días vacacionales</label>
       <div class="gps-data" id="diasVacacionalesTexto"></div>
     </div>
-    <button type="button" class="btn btn-outline" id="btnImprimirFormato" style="display:none;margin-bottom:14px" onclick="imprimirFormatoVacaciones()">🖨️ Imprimir formato de vacaciones</button>
+    <div id="accionesFormatoVacaciones" style="display:none;margin-bottom:14px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" class="btn btn-outline" style="flex:1;min-width:110px" onclick="imprimirFormatoVacaciones()">🖨️ Imprimir</button>
+        <button type="button" class="btn btn-outline" style="flex:1;min-width:110px" onclick="descargarFormatoVacaciones()">⬇️ Descargar PDF</button>
+        <button type="button" class="btn btn-outline" style="flex:1;min-width:110px" onclick="enviarWhatsappFormato()">💬 WhatsApp</button>
+      </div>
+    </div>
     <div class="input-group"><label>Comentario (opcional)</label><textarea id="comentarioSolicitud" placeholder="Motivo o detalle"></textarea></div>
     <div class="input-group"><label>Evidencia (PDF, foto)</label><input type="file" id="evidenciaFile" accept="image/*,application/pdf" style="font-size:14px"></div>
     <div id="solicitudError" class="status-box error" style="display:none"></div>
@@ -406,6 +412,7 @@
 
 <div class="loader-overlay" id="loader"><div class="spinner"></div></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 // ════════════════════════════════════════════════════
 //  PEGA AQUÍ TU URL DE APPS SCRIPT WEB APP
@@ -624,7 +631,7 @@ function actualizarFormatoVacaciones(){
   var fi=document.getElementById('fechaInicio').value,ff=document.getElementById('fechaFin').value;
   var aplica=tipo==='Vacaciones'&&empresaRequiereFormato_();
   document.getElementById('diasVacacionalesGroup').style.display=aplica?'block':'none';
-  document.getElementById('btnImprimirFormato').style.display=aplica?'block':'none';
+  document.getElementById('accionesFormatoVacaciones').style.display=aplica?'block':'none';
   if(aplica&&fi&&ff){
     var dias=calcularDiasVacacionales_(fi,ff);
     document.getElementById('diasVacacionalesTexto').textContent=dias+(dias===1?' día':' días');
@@ -675,7 +682,7 @@ function imprimirFormatoVacaciones(){
       +'<div class="legal">HAGO CONSTAR QUE LAS VACACIONES A QUE TENGO DERECHO ME SERÁN OTORGADAS CON APEGO A LOS ARTS. 76, 79, Y 80 DE LA LEY FEDERAL DEL TRABAJO Y QUE CORRESPONDEN AL PERIODO ARRIBA MENCIONADO.</div>'
       +'<div class="firmas">'
         +'<div class="firma"><div class="linea">Firma del empleado</div><div class="nombre">'+(empleado.nombre||'')+'</div></div>'
-        +'<div class="firma"><div class="linea">Firma del Jefe Directo</div><div class="nombre">'+(empleado.lider||'')+'</div></div>'
+        +'<div class="firma"><div class="linea">Firma del Jefe Directo</div><div class="nombre">'+(empleado.jefeDirecto||'')+'</div></div>'
       +'</div>'
       +'<div class="firmas rh">'
         +'<div class="firma" style="width:60%;margin:0 auto"><div class="linea">Firma de Recursos Humanos</div><div class="nombre">'+(empleado.rhNombre||'')+'</div></div>'
@@ -691,6 +698,94 @@ function imprimirFormatoVacaciones(){
   var win=window.open('','_blank');
   win.document.write(html);
   win.document.close();
+}
+function descargarFormatoVacaciones(){
+  var fi=document.getElementById('fechaInicio').value,ff=document.getElementById('fechaFin').value;
+  if(!fi||!ff){alert('Selecciona fecha de inicio y fin.');return}
+  if(!window.jspdf){alert('No se pudo cargar el generador de PDF. Verifica tu conexión e intenta de nuevo.');return}
+  var dias=calcularDiasVacacionales_(fi,ff);
+  var doc=new window.jspdf.jsPDF({unit:'pt',format:'letter'});
+  var W=612,M=40,cw=W-2*M,y=M;
+
+  function campo(label,valor,x,yy,w){
+    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(0,0,0);
+    doc.text(label,x,yy);
+    doc.setFont('helvetica','normal');doc.setFontSize(10);
+    doc.text(String(valor||''),x,yy+14);
+    doc.setLineWidth(.5);doc.setDrawColor(0);
+    doc.line(x,yy+17,x+w,yy+17);
+  }
+  function seccion(titulo,yy){
+    doc.setFillColor(201,184,220);
+    doc.rect(M,yy,cw,18,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(0,0,0);
+    doc.text(titulo,W/2,yy+13,{align:'center'});
+  }
+  function firma(label,nombre,x,yy,w){
+    doc.setLineWidth(.6);doc.setDrawColor(0);
+    doc.line(x,yy,x+w,yy);
+    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(0,0,0);
+    doc.text(label,x+w/2,yy+12,{align:'center'});
+    doc.setFontSize(8);
+    doc.text(String(nombre||''),x+w/2,yy+24,{align:'center'});
+  }
+
+  doc.setFillColor(75,31,92);
+  doc.rect(M,y,cw,26,'F');
+  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(13);
+  doc.text('SOLICITUD DE VACACIONES',W/2,y+17,{align:'center'});
+  y+=26;
+
+  var boxTop=y+10,boxH=150;
+  doc.setDrawColor(0);doc.setLineWidth(1.2);
+  doc.rect(M,boxTop,cw,boxH);
+  var fy=boxTop+22;
+  campo('NOMBRE',empleado.nombre,M+14,fy,cw-28);
+  fy+=34;
+  campo('PUESTO',empleado.puesto,M+14,fy,(cw-28)*0.6);
+  campo('No. EMPLEADO',empleado.numero,M+14+(cw-28)*0.65,fy,(cw-28)*0.33);
+  fy+=34;
+  campo('FECHA DE INGRESO',empleado.fechaIngreso?fmtFechaCorta_(empleado.fechaIngreso):'',M+14,fy,(cw-28)*0.6);
+  campo('No. DE DÍAS VACACIONALES',dias,M+14+(cw-28)*0.65,fy,(cw-28)*0.33);
+
+  y=boxTop+boxH+14;
+  seccion('PERIODO VACACIONAL',y);
+  y+=28;
+  campo('FECHA DE INICIO',fmtFechaCorta_(fi),M+14,y,(cw-28)*0.45);
+  campo('FECHA DE TÉRMINO',fmtFechaCorta_(ff),M+14+(cw-28)*0.5,y,(cw-28)*0.45);
+  y+=40;
+
+  doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(0,0,0);
+  var legal='HAGO CONSTAR QUE LAS VACACIONES A QUE TENGO DERECHO ME SERÁN OTORGADAS CON APEGO A LOS ARTS. 76, 79, Y 80 DE LA LEY FEDERAL DEL TRABAJO Y QUE CORRESPONDEN AL PERIODO ARRIBA MENCIONADO.';
+  var lines=doc.splitTextToSize(legal,cw-40);
+  doc.text(lines,W/2,y,{align:'center'});
+  y+=lines.length*11+50;
+
+  firma('Firma del empleado',empleado.nombre,M+10,y,(cw/2)-30);
+  firma('Firma del Jefe Directo',empleado.jefeDirecto,M+cw/2+20,y,(cw/2)-30);
+  y+=60;
+  firma('Firma de Recursos Humanos',empleado.rhNombre,M+cw*0.25,y,cw*0.5);
+  y+=50;
+
+  seccion('PARA USO EXCLUSIVO DE RECURSOS HUMANOS',y);
+  y+=28;
+  campo('PERIODO','',M+14,y,(cw-28)*0.45);
+  campo('DÍAS PENDIENTES','',M+14+(cw-28)*0.5,y,(cw-28)*0.45);
+
+  doc.save('SolicitudVacaciones_'+(empleado.numero||'')+'.pdf');
+}
+function enviarWhatsappFormato(){
+  var fi=document.getElementById('fechaInicio').value,ff=document.getElementById('fechaFin').value;
+  if(!fi||!ff){alert('Selecciona fecha de inicio y fin.');return}
+  var dias=calcularDiasVacacionales_(fi,ff);
+  var msg='*Solicitud de Vacaciones*\n'
+    +'Empleado: '+(empleado.nombre||'')+' ('+(empleado.numero||'')+')\n'
+    +'Puesto: '+(empleado.puesto||'')+'\n'
+    +'Periodo: '+fmtFechaCorta_(fi)+' al '+fmtFechaCorta_(ff)+'\n'
+    +'Días solicitados: '+dias+'\n'
+    +'Jefe Directo: '+(empleado.jefeDirecto||'')+'\n\n'
+    +'Descarga el PDF con el botón "Descargar PDF" y adjúntalo aquí antes de enviar.';
+  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
 }
 function irSolicitud(){
   var h=new Date().toISOString().split('T')[0];
