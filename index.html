@@ -214,7 +214,11 @@
     </div>
     <div id="comentarioEvidenciaGroup">
       <div class="input-group"><label>Comentario (opcional)</label><textarea id="comentarioSolicitud" placeholder="Motivo o detalle"></textarea></div>
-      <div class="input-group"><label>Evidencia (PDF, foto)</label><input type="file" id="evidenciaFile" accept="image/*,application/pdf" style="font-size:14px"></div>
+      <div class="input-group">
+        <label id="evidenciaLabel">Evidencia (PDF, foto)</label>
+        <input type="file" id="evidenciaFile" accept="image/*,application/pdf" style="font-size:14px">
+        <div id="evidenciaAyuda" style="font-size:12px;color:var(--text-light);margin-top:4px"></div>
+      </div>
     </div>
     <div id="solicitudError" class="status-box error" style="display:none"></div>
     <button class="btn btn-primary" id="btnEnviarSolicitud" onclick="enviarSolicitud()">Enviar solicitud</button>
@@ -635,9 +639,23 @@ function calcularDiasVacacionales_(fi,ff){
   }
   return total-finesCompletos;
 }
+function actualizarEvidenciaAyuda_(tipo){
+  var label=document.getElementById('evidenciaLabel'),ayuda=document.getElementById('evidenciaAyuda');
+  if(tipo==='Permiso'){
+    label.textContent='Evidencia (obligatoria)';
+    ayuda.textContent='Adjunta una foto o captura de la autorización previa: mensaje de WhatsApp, correo electrónico, o permiso por escrito.';
+  }else if(tipo==='Incapacidad'){
+    label.textContent='Evidencia (obligatoria)';
+    ayuda.textContent='Adjunta tu incapacidad médica (foto o PDF).';
+  }else{
+    label.textContent='Evidencia (PDF, foto)';
+    ayuda.textContent='';
+  }
+}
 function actualizarFormatoVacaciones(){
   var tipo=document.getElementById('tipoSolicitud').value;
   var fi=document.getElementById('fechaInicio').value,ff=document.getElementById('fechaFin').value;
+  actualizarEvidenciaAyuda_(tipo);
   var aplica=tipo==='Vacaciones'&&empresaRequiereFormato_();
   document.getElementById('modoVacacionesGroup').style.display=aplica?'block':'none';
   var modo=aplica?document.getElementById('modoVacaciones').value:'enviar';
@@ -833,6 +851,8 @@ function enviarSolicitud(){
   var tipo=document.getElementById('tipoSolicitud').value,fi=document.getElementById('fechaInicio').value,ff=document.getElementById('fechaFin').value,com=document.getElementById('comentarioSolicitud').value;
   if(!fi||!ff){showErr('solicitudError','Selecciona las fechas.');return}
   var fileIn=document.getElementById('evidenciaFile');
+  if(tipo==='Permiso'&&fileIn.files.length===0){showErr('solicitudError','Adjunta evidencia de la autorización previa del permiso.');return}
+  if(tipo==='Incapacidad'&&fileIn.files.length===0){showErr('solicitudError','Adjunta tu incapacidad médica.');return}
   var send=function(evB64,evN){
     loader(true);
     api({accion:'solicitud',datos:{numero:empleado.numero,nombre:empleado.nombre,tipoSolicitud:tipo,fechaInicio:fi,fechaFin:ff,comentario:com,evidenciaBase64:evB64||'',evidenciaNombre:evN||''}}).then(function(r){
