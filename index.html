@@ -43,6 +43,20 @@
     .hor-row:last-child{border-bottom:none}
     .hor-row .del{background:transparent;border:none;color:var(--danger);font-size:16px;cursor:pointer;padding:4px 8px}
     .row-2{display:flex;gap:8px}.row-2 .input-group{flex:1}
+    .menu-btn.equipo{border-bottom:4px solid #00b894}
+    .ubic-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+    .ubic-row:last-child{border-bottom:none}
+    .ubic-checks{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:12px}
+    .ubic-checks label{display:flex;align-items:center;gap:4px;cursor:pointer}
+    .ubic-checks .hint{color:var(--text-light);font-size:11px;width:100%;margin-top:2px}
+    .quick-btns{display:flex;gap:8px;margin-bottom:14px}
+    .quick-btns button{flex:1;padding:10px 6px;border:2px solid var(--border);background:#fff;border-radius:var(--radius-sm);font-size:12px;font-weight:600;color:var(--primary);cursor:pointer}
+    .rep-emp{background:#f8f9fa;border-radius:var(--radius-sm);padding:12px;margin-bottom:12px}
+    .rep-emp-header{display:flex;justify-content:space-between;font-weight:700;font-size:14px;margin-bottom:8px}
+    .rep-emp-header .total{color:var(--primary)}
+    .rep-table{width:100%;border-collapse:collapse;font-size:12px}
+    .rep-table th{text-align:left;color:var(--text-light);font-weight:600;padding:4px 6px;border-bottom:1px solid var(--border)}
+    .rep-table td{padding:4px 6px;border-bottom:1px solid var(--border)}
     .status-box{padding:14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
     .status-box.info{background:#dfe6e9}.status-box.success{background:#d4edda;color:#155724}
     .status-box.error{background:#f8d7da;color:#721c24}.status-box.warning{background:#fff3cd;color:#856404}
@@ -112,6 +126,7 @@
     <div class="menu-btn solicitud" onclick="irSolicitud()"><div class="icon">📋</div><div class="label">Solicitudes</div></div>
     <div class="menu-btn historial" onclick="irHistorial()"><div class="icon">📊</div><div class="label">Mi Historial</div></div>
     <div class="menu-btn admin" id="btnAdmin" style="display:none" onclick="irAdmin()"><div class="icon">🛠️</div><div class="label">Panel RH</div></div>
+    <div class="menu-btn equipo" id="btnEquipo" style="display:none" onclick="irEquipo()"><div class="icon">👥</div><div class="label">Mi Equipo</div></div>
   </div>
 </div>
 
@@ -214,10 +229,38 @@
     <div id="listaHorarios">Cargando…</div>
   </div>
   <div class="card">
+    <h2>Ubicaciones</h2>
+    <div id="listaUbicaciones">Cargando…</div>
+    <div class="input-group" style="margin-top:14px"><label>Nombre</label><input type="text" id="ubicNombre" placeholder="Ej: Sucursal Norte"></div>
+    <div class="input-group"><label>Dirección o coordenadas (lat,lng)</label><input type="text" id="ubicDireccion" placeholder="Calle, colonia, ciudad — o 25.5623994,-103.4317326"></div>
+    <div id="adminUbicacionError" class="status-box error" style="display:none"></div>
+    <button class="btn btn-primary" onclick="guardarUbicacion()">Agregar ubicación</button>
+  </div>
+  <div class="card">
     <h2>Empleados</h2>
     <div class="input-group"><input type="text" id="buscarEmpleado" placeholder="Buscar por nombre, número o puesto" oninput="filtrarEmpleados()"></div>
     <div id="listaEmpleadosAdmin">Cargando…</div>
   </div>
+</div>
+
+<!-- MI EQUIPO -->
+<div class="screen" id="equipoScreen">
+  <div class="back-row" onclick="irMenu()">← Menú</div>
+  <div class="card">
+    <h2>Reporte de asistencia</h2>
+    <div class="quick-btns">
+      <button onclick="rangoRapido('hoy')">Hoy</button>
+      <button onclick="rangoRapido('semana')">Semana</button>
+      <button onclick="rangoRapido('quincena')">Quincena</button>
+    </div>
+    <div class="row-2">
+      <div class="input-group"><label>Desde</label><input type="date" id="repFi"></div>
+      <div class="input-group"><label>Hasta</label><input type="date" id="repFf"></div>
+    </div>
+    <div id="repError" class="status-box error" style="display:none"></div>
+    <button class="btn btn-primary" onclick="generarReporte()">Generar reporte</button>
+  </div>
+  <div id="repResultados"></div>
 </div>
 
 <div class="loader-overlay" id="loader"><div class="spinner"></div></div>
@@ -230,6 +273,7 @@ var API_URL = 'https://script.google.com/macros/s/AKfycbwYhFGmH06uwOOCVqo_lzU4LC
 // ════════════════════════════════════════════════════
 
 var empleado=null, miPin='', tipoRegistro='', gpsCoords=null, fotoBase64=null, stream=null;
+var ROLES_JEFE=['DIRECTOR DISTRITAL','GERENTE DE SERVICIO','GERENTE DE OPERACIONES'];
 var esMovil = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
 function api(body){
@@ -260,13 +304,14 @@ function doLogin(){
       document.getElementById('userName').textContent=empleado.nombre;
       document.getElementById('userBar').classList.add('active');
       document.getElementById('btnAdmin').style.display=empleado.rol==='RH'?'':'none';
+      document.getElementById('btnEquipo').style.display=(empleado.rol==='RH'||ROLES_JEFE.indexOf(empleado.rol)>-1)?'':'none';
       document.getElementById('loginError').style.display='none';
       show('menuScreen');
     }
     else showErr('loginError',r.msg);
   }).catch(function(){loader(false);showErr('loginError','Error de conexión.')});
 }
-function logout(){empleado=null;miPin='';detenerCamara();document.getElementById('userBar').classList.remove('active');document.getElementById('btnAdmin').style.display='none';document.getElementById('inputNumero').value='';document.getElementById('inputPin').value='';show('loginScreen')}
+function logout(){empleado=null;miPin='';detenerCamara();document.getElementById('userBar').classList.remove('active');document.getElementById('btnAdmin').style.display='none';document.getElementById('btnEquipo').style.display='none';document.getElementById('inputNumero').value='';document.getElementById('inputPin').value='';show('loginScreen')}
 function irMenu(){detenerCamara();show('menuScreen')}
 
 // REGISTRO
@@ -450,14 +495,17 @@ function irHistorial(){
 }
 
 // PANEL RH
-var empleadosCache=[];
+var empleadosCache=[], ubicacionesCache=[];
 function irAdmin(){
   show('adminScreen');
   document.getElementById('horNivel').value='General';toggleHorClave();
   document.getElementById('horClave').value='';document.getElementById('horEntrada').value='';document.getElementById('horSalida').value='';
   document.getElementById('adminHorarioError').style.display='none';
+  document.getElementById('ubicNombre').value='';document.getElementById('ubicDireccion').value='';
+  document.getElementById('adminUbicacionError').style.display='none';
   document.getElementById('buscarEmpleado').value='';
-  cargarEmpleadosAdmin();cargarHorariosAdmin();
+  cargarHorariosAdmin();
+  cargarUbicacionesAdmin().then(cargarEmpleadosAdmin);
 }
 function cargarEmpleadosAdmin(){
   document.getElementById('listaEmpleadosAdmin').textContent='Cargando…';
@@ -471,6 +519,11 @@ function renderEmpleadosAdmin(lista){
   var c=document.getElementById('listaEmpleadosAdmin');
   if(!lista.length){c.textContent='Sin resultados.';return}
   c.innerHTML=lista.map(function(e){
+    var asignadas=(e.ubicacionesAsignadas||'').split(',').map(function(s){return s.trim().toLowerCase()}).filter(Boolean);
+    var checks=ubicacionesCache.map(function(u){
+      var checked=asignadas.indexOf(u.nombre.toLowerCase())>-1;
+      return '<label><input type="checkbox" '+(checked?'checked':'')+' onchange="toggleUbicacionEmpleado(\''+e.numero+'\',\''+u.nombre.replace(/'/g,"\\'")+'\',this.checked)"> '+u.nombre+'</label>';
+    }).join('');
     return '<div class="emp-row">'
       +'<div class="top"><span>'+e.nombre+'</span><span style="color:var(--text-light);font-weight:400">'+e.numero+'</span></div>'
       +'<div class="puesto">'+(e.puesto||'Sin puesto asignado')+'</div>'
@@ -478,6 +531,7 @@ function renderEmpleadosAdmin(lista){
         +'<label><input type="checkbox" '+(e.activo?'checked':'')+' onchange="cambiarEmpleado(\''+e.numero+'\',\'activo\',this.checked)"> Activo</label>'
         +'<label><input type="checkbox" '+(e.requiereUbicacion?'checked':'')+' onchange="cambiarEmpleado(\''+e.numero+'\',\'requiereUbicacion\',this.checked)"> Requiere ubicación</label>'
       +'</div>'
+      +'<div class="ubic-checks">'+checks+'<div class="hint">Sin selección = aplica a todas las ubicaciones</div></div>'
     +'</div>';
   }).join('');
 }
@@ -487,6 +541,49 @@ function filtrarEmpleados(){
   renderEmpleadosAdmin(empleadosCache.filter(function(e){
     return (e.nombre||'').toLowerCase().indexOf(q)>-1 || (e.numero||'').toLowerCase().indexOf(q)>-1 || (e.puesto||'').toLowerCase().indexOf(q)>-1;
   }));
+}
+function toggleUbicacionEmpleado(numero,nombreUbic,checked){
+  var emp=empleadosCache.find(function(e){return e.numero===numero});
+  if(!emp)return;
+  var actuales=(emp.ubicacionesAsignadas||'').split(',').map(function(s){return s.trim()}).filter(Boolean);
+  if(checked){if(actuales.indexOf(nombreUbic)===-1)actuales.push(nombreUbic)}
+  else{actuales=actuales.filter(function(n){return n!==nombreUbic})}
+  emp.ubicacionesAsignadas=actuales.join(',');
+  api({accion:'adminActualizarEmpleado',numero:empleado.numero,pin:miPin,target:numero,cambios:{ubicacionesAsignadas:emp.ubicacionesAsignadas}}).then(function(r){
+    if(!r.ok)alert(r.msg);
+  }).catch(function(){alert('Error de conexión.')});
+}
+
+// UBICACIONES
+function cargarUbicacionesAdmin(){
+  document.getElementById('listaUbicaciones').textContent='Cargando…';
+  return api({accion:'adminListarUbicaciones',numero:empleado.numero,pin:miPin}).then(function(r){
+    var c=document.getElementById('listaUbicaciones');
+    if(!r.ok){c.textContent=r.msg;ubicacionesCache=[];return}
+    ubicacionesCache=r.ubicaciones;
+    if(!ubicacionesCache.length){c.textContent='Sin ubicaciones registradas.';return}
+    c.innerHTML=ubicacionesCache.map(function(u){
+      return '<div class="ubic-row"><div><div style="font-weight:600;font-size:13px">'+u.nombre+'</div>'
+        +'<div style="font-size:12px;color:var(--text-light)">'+Number(u.lat).toFixed(6)+', '+Number(u.lng).toFixed(6)+'</div></div>'
+        +'<button class="del" onclick="eliminarUbicacion('+u.fila+')">✕</button></div>';
+    }).join('');
+  }).catch(function(){document.getElementById('listaUbicaciones').textContent='Error al cargar.';ubicacionesCache=[]});
+}
+function guardarUbicacion(){
+  var nombre=document.getElementById('ubicNombre').value.trim();
+  var direccion=document.getElementById('ubicDireccion').value.trim();
+  document.getElementById('adminUbicacionError').style.display='none';
+  if(!nombre||!direccion){showErr('adminUbicacionError','Ingresa nombre y dirección (o lat,lng).');return}
+  loader(true);
+  api({accion:'adminGuardarUbicacion',numero:empleado.numero,pin:miPin,ubicacion:{nombre:nombre,direccion:direccion}}).then(function(r){
+    loader(false);
+    if(r.ok){document.getElementById('ubicNombre').value='';document.getElementById('ubicDireccion').value='';cargarUbicacionesAdmin().then(function(){renderEmpleadosAdmin(empleadosCache)})}
+    else showErr('adminUbicacionError',r.msg);
+  }).catch(function(){loader(false);showErr('adminUbicacionError','Error de conexión.')});
+}
+function eliminarUbicacion(fila){
+  loader(true);
+  api({accion:'adminEliminarUbicacion',numero:empleado.numero,pin:miPin,fila:fila}).then(function(){loader(false);cargarUbicacionesAdmin().then(function(){renderEmpleadosAdmin(empleadosCache)})}).catch(function(){loader(false);alert('Error de conexión.')});
 }
 function cambiarEmpleado(numero,campo,valor){
   var cambios={};cambios[campo]=valor;
@@ -531,6 +628,51 @@ function cargarHorariosAdmin(){
 function eliminarHorario(fila){
   loader(true);
   api({accion:'adminEliminarHorario',numero:empleado.numero,pin:miPin,fila:fila}).then(function(){loader(false);cargarHorariosAdmin()}).catch(function(){loader(false);alert('Error de conexión.')});
+}
+
+// MI EQUIPO
+function fechaLocal_(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function rangoRapido(tipo){
+  var hoy=new Date(),fi,ff;
+  if(tipo==='hoy'){fi=new Date(hoy);ff=new Date(hoy)}
+  else if(tipo==='semana'){
+    var dow=hoy.getDay();
+    fi=new Date(hoy);fi.setDate(hoy.getDate()-((dow+6)%7));
+    ff=new Date(fi);ff.setDate(fi.getDate()+6);
+  }else{
+    if(hoy.getDate()<=15){fi=new Date(hoy.getFullYear(),hoy.getMonth(),1);ff=new Date(hoy.getFullYear(),hoy.getMonth(),15)}
+    else{fi=new Date(hoy.getFullYear(),hoy.getMonth(),16);ff=new Date(hoy.getFullYear(),hoy.getMonth()+1,0)}
+  }
+  document.getElementById('repFi').value=fechaLocal_(fi);
+  document.getElementById('repFf').value=fechaLocal_(ff);
+}
+function irEquipo(){
+  show('equipoScreen');
+  rangoRapido('semana');
+  document.getElementById('repError').style.display='none';
+  document.getElementById('repResultados').innerHTML='';
+}
+function generarReporte(){
+  var fi=document.getElementById('repFi').value,ff=document.getElementById('repFf').value;
+  document.getElementById('repError').style.display='none';
+  if(!fi||!ff){showErr('repError','Selecciona ambas fechas.');return}
+  loader(true);
+  api({accion:'reporteEquipo',numero:empleado.numero,pin:miPin,fi:fi,ff:ff}).then(function(r){
+    loader(false);
+    if(!r.ok){showErr('repError',r.msg);document.getElementById('repResultados').innerHTML='';return}
+    renderReporte(r.reporte);
+  }).catch(function(){loader(false);showErr('repError','Error de conexión.')});
+}
+function renderReporte(reporte){
+  var c=document.getElementById('repResultados');
+  if(!reporte.length){c.innerHTML='<div class="card">Sin empleados en tu equipo.</div>';return}
+  c.innerHTML=reporte.map(function(emp){
+    var filas=emp.dias.length?emp.dias.map(function(d){
+      return '<tr><td>'+d.fecha+'</td><td>'+(d.entrada||'—')+'</td><td>'+(d.salida||'—')+'</td><td>'+(d.horas!==null?d.horas+' h':'—')+'</td></tr>';
+    }).join(''):'<tr><td colspan="4" style="color:var(--text-light)">Sin registros en el rango.</td></tr>';
+    return '<div class="rep-emp"><div class="rep-emp-header"><span>'+emp.nombre+'</span><span class="total">'+emp.totalHoras+' h</span></div>'
+      +'<table class="rep-table"><tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Horas</th></tr>'+filas+'</table></div>';
+  }).join('');
 }
 
 document.getElementById('inputPin').addEventListener('keyup',function(e){if(e.key==='Enter')doLogin()});
