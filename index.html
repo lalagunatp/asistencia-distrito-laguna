@@ -699,10 +699,7 @@ function imprimirFormatoVacaciones(){
   win.document.write(html);
   win.document.close();
 }
-function descargarFormatoVacaciones(){
-  var fi=document.getElementById('fechaInicio').value,ff=document.getElementById('fechaFin').value;
-  if(!fi||!ff){alert('Selecciona fecha de inicio y fin.');return}
-  if(!window.jspdf){alert('No se pudo cargar el generador de PDF. Verifica tu conexión e intenta de nuevo.');return}
+function construirPdfVacaciones_(fi,ff){
   var dias=calcularDiasVacacionales_(fi,ff);
   var doc=new window.jspdf.jsPDF({unit:'pt',format:'letter'});
   var W=612,M=40,cw=W-2*M,y=M;
@@ -772,20 +769,41 @@ function descargarFormatoVacaciones(){
   campo('PERIODO','',M+14,y,(cw-28)*0.45);
   campo('DÍAS PENDIENTES','',M+14+(cw-28)*0.5,y,(cw-28)*0.45);
 
-  doc.save('SolicitudVacaciones_'+(empleado.numero||'')+'.pdf');
+  return doc;
+}
+function nombreArchivoVacaciones_(){
+  return 'SolicitudVacaciones_'+(empleado.numero||'')+'.pdf';
+}
+function descargarFormatoVacaciones(){
+  var fi=document.getElementById('fechaInicio').value,ff=document.getElementById('fechaFin').value;
+  if(!fi||!ff){alert('Selecciona fecha de inicio y fin.');return}
+  if(!window.jspdf){alert('No se pudo cargar el generador de PDF. Verifica tu conexión e intenta de nuevo.');return}
+  construirPdfVacaciones_(fi,ff).save(nombreArchivoVacaciones_());
 }
 function enviarWhatsappFormato(){
   var fi=document.getElementById('fechaInicio').value,ff=document.getElementById('fechaFin').value;
   if(!fi||!ff){alert('Selecciona fecha de inicio y fin.');return}
+  if(!window.jspdf){alert('No se pudo cargar el generador de PDF. Verifica tu conexión e intenta de nuevo.');return}
   var dias=calcularDiasVacacionales_(fi,ff);
-  var msg='*Solicitud de Vacaciones*\n'
-    +'Empleado: '+(empleado.nombre||'')+' ('+(empleado.numero||'')+')\n'
-    +'Puesto: '+(empleado.puesto||'')+'\n'
-    +'Periodo: '+fmtFechaCorta_(fi)+' al '+fmtFechaCorta_(ff)+'\n'
-    +'Días solicitados: '+dias+'\n'
-    +'Jefe Directo: '+(empleado.jefeDirecto||'')+'\n\n'
-    +'Descarga el PDF con el botón "Descargar PDF" y adjúntalo aquí antes de enviar.';
-  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+  var msg='Solicitud de Vacaciones - '+(empleado.nombre||'')+' ('+fmtFechaCorta_(fi)+' al '+fmtFechaCorta_(ff)+', '+dias+' días)';
+  var nombreArchivo=nombreArchivoVacaciones_();
+  var blob=construirPdfVacaciones_(fi,ff).output('blob');
+  var puedeCompartirArchivo=false;
+  try{
+    var file=new File([blob],nombreArchivo,{type:'application/pdf'});
+    puedeCompartirArchivo=navigator.canShare&&navigator.canShare({files:[file]});
+  }catch(e){puedeCompartirArchivo=false}
+  if(puedeCompartirArchivo){
+    navigator.share({files:[file],title:'Solicitud de Vacaciones',text:msg}).catch(function(err){
+      if(err&&err.name!=='AbortError')alert('No se pudo compartir: '+err.message);
+    });
+  }else{
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');a.href=url;a.download=nombreArchivo;document.body.appendChild(a);a.click();document.body.removeChild(a);
+    setTimeout(function(){URL.revokeObjectURL(url)},10000);
+    alert('Tu navegador no permite adjuntar el PDF directamente a WhatsApp. Se descargó el archivo — ábrelo desde WhatsApp y adjúntalo manualmente en el chat.');
+    window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+  }
 }
 function irSolicitud(){
   var h=new Date().toISOString().split('T')[0];
