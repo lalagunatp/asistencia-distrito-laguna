@@ -394,40 +394,44 @@
     </details>
   </div>
   <div class="card">
-    <h2>Alta de empleado</h2>
-    <div class="row-2">
-      <div class="input-group"><label>Número de empleado</label><input type="text" id="altaNumero" inputmode="numeric"></div>
-      <div class="input-group"><label>PIN</label><input type="text" id="altaPin" inputmode="numeric" maxlength="6"></div>
-    </div>
-    <div class="input-group"><label>Nombre completo</label><input type="text" id="altaNombre"></div>
-    <div class="row-2">
-      <div class="input-group"><label>Empresa</label><input type="text" id="altaEmpresa"></div>
-      <div class="input-group"><label>Puesto</label><input type="text" id="altaPuesto"></div>
-    </div>
-    <div class="row-2">
-      <div class="input-group"><label>Líder</label><input type="text" id="altaLider"></div>
-      <div class="input-group"><label>Jefe Directo</label><input type="text" id="altaJefeDirecto"></div>
-    </div>
-    <div class="row-2">
-      <div class="input-group"><label>Área</label><input type="text" id="altaArea"></div>
-      <div class="input-group"><label>Fecha de ingreso</label><input type="date" id="altaFechaIngreso"></div>
-    </div>
-    <div class="row-2">
-      <div class="input-group"><label>Requiere ubicación</label>
-        <select id="altaRequiereUbicacion"><option value="SI">Sí</option><option value="NO">No</option></select>
+    <details class="collapsible">
+      <summary>Alta de empleado</summary>
+      <div class="collapsible-body">
+        <div class="row-2">
+          <div class="input-group"><label>Número de empleado</label><input type="text" id="altaNumero" inputmode="numeric"></div>
+          <div class="input-group"><label>PIN</label><input type="text" id="altaPin" inputmode="numeric" maxlength="6"></div>
+        </div>
+        <div class="input-group"><label>Nombre completo</label><input type="text" id="altaNombre"></div>
+        <div class="row-2">
+          <div class="input-group"><label>Empresa</label><input type="text" id="altaEmpresa"></div>
+          <div class="input-group"><label>Puesto</label><input type="text" id="altaPuesto"></div>
+        </div>
+        <div class="row-2">
+          <div class="input-group"><label>Líder</label><input type="text" id="altaLider"></div>
+          <div class="input-group"><label>Jefe Directo</label><input type="text" id="altaJefeDirecto"></div>
+        </div>
+        <div class="row-2">
+          <div class="input-group"><label>Área</label><input type="text" id="altaArea"></div>
+          <div class="input-group"><label>Fecha de ingreso</label><input type="date" id="altaFechaIngreso"></div>
+        </div>
+        <div class="row-2">
+          <div class="input-group"><label>Requiere ubicación</label>
+            <select id="altaRequiereUbicacion"><option value="SI">Sí</option><option value="NO">No</option></select>
+          </div>
+          <div class="input-group"><label>Rol</label>
+            <select id="altaRol">
+              <option value="">(ninguno)</option>
+              <option value="RH">RH</option>
+              <option value="Director Distrital">Director Distrital</option>
+              <option value="Gerente de Servicio">Gerente de Servicio</option>
+              <option value="Gerente de Operaciones">Gerente de Operaciones</option>
+            </select>
+          </div>
+        </div>
+        <div id="adminAltaError" class="status-box error" style="display:none"></div>
+        <button class="btn btn-primary" onclick="crearEmpleado()">Dar de alta</button>
       </div>
-      <div class="input-group"><label>Rol</label>
-        <select id="altaRol">
-          <option value="">(ninguno)</option>
-          <option value="RH">RH</option>
-          <option value="Director Distrital">Director Distrital</option>
-          <option value="Gerente de Servicio">Gerente de Servicio</option>
-          <option value="Gerente de Operaciones">Gerente de Operaciones</option>
-        </select>
-      </div>
-    </div>
-    <div id="adminAltaError" class="status-box error" style="display:none"></div>
-    <button class="btn btn-primary" onclick="crearEmpleado()">Dar de alta</button>
+    </details>
   </div>
   <div class="card">
     <h2>Empleados</h2>
